@@ -1,0 +1,41 @@
+name: ChronoTask
+options:
+  bundleIdPrefix: com.chronotask
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "16.3"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+targets:
+  ChronoTask:
+    type: application
+    platform: macOS
+    sources:
+      - ChronoTask
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chronotask.app
+        INFOPLIST_FILE: ChronoTask/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ChronoTask/ChronoTask.entitlements
+        GENERATE_INFOPLIST_FILE: false
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+
+  ChronoTaskTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - ChronoTaskTests
+    dependencies:
+      - target: ChronoTask
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chronotask.tests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ChronoTask.app/Contents/MacOS/ChronoTask"
+        BUNDLE_LOADER: "$(TEST_HOST)"

@@ -1,0 +1,34 @@
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+Build/
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+.idea
+
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+.claude/settings.local.json
