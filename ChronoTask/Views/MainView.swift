@@ -221,10 +221,13 @@ struct MainView: View {
         isLoadingTasks = true
         loadError = nil
         do {
-            tasks = try await ClickUpAPI.shared.getTasks(teamId: team.id, userId: user.id)
-            NSLog("[MainView] loadTasks: loaded \(tasks.count) tasks")
+            let fetched = try await ClickUpAPI.shared.getTasks(teamId: team.id, userId: user.id)
+            tasks = fetched.filter { Self.isEligibleForTracking($0) }
+            NSLog("[MainView] loadTasks: loaded \(fetched.count) tasks, \(tasks.count) eligible")
             if tasks.isEmpty {
-                loadError = "No tasks assigned to you"
+                loadError = fetched.isEmpty
+                    ? "No tasks assigned to you"
+                    : "No tasks — all are closed or TIP"
             }
         } catch let error as APIError {
             NSLog("[MainView] loadTasks API error: \(error)")
@@ -253,6 +256,20 @@ struct MainView: View {
                 toast = nil
             }
         }
+    }
+
+    // MARK: - Task eligibility
+
+    private static let excludedStatusNames: Set<String> = ["tip", "closed", "recently closed"]
+
+    private static func isEligibleForTracking(_ task: ClickUpTask) -> Bool {
+        guard let status = task.status else { return true }
+        let name = status.status.trimmingCharacters(in: .whitespaces).lowercased()
+        if excludedStatusNames.contains(name) { return false }
+        if status.type?.trimmingCharacters(in: .whitespaces).lowercased() == "closed" {
+            return false
+        }
+        return true
     }
 
     // MARK: - Keyboard
