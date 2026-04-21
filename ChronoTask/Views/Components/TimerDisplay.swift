@@ -2,12 +2,14 @@ import SwiftUI
 
 struct TimerDisplay: View {
     let elapsed: TimeInterval
-    let isRunning: Bool
 
     var body: some View {
         Text(elapsed.timerFormatted)
             .font(Theme.timerFont)
             .monospacedDigit()
-            .foregroundColor(isRunning ? Theme.timerRunningColor : Theme.timerIdleColor)
+            .tracking(-1)
+            .foregroundColor(Theme.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
     }
 }

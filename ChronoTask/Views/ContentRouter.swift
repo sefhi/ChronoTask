@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentRouter: View {
-    @StateObject private var appState = AppState()
+    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         Group {
@@ -14,16 +14,17 @@ struct ContentRouter: View {
                 MainView()
             }
         }
-        .environmentObject(appState)
         .frame(width: Theme.windowWidth)
         .frame(minHeight: Theme.windowHeight)
+        .preferredColorScheme(.light)
     }
 
     private var loadingView: some View {
         ZStack {
-            Theme.background
+            Theme.background.ignoresSafeArea()
             ProgressView()
                 .scaleEffect(0.8)
+                .tint(Theme.ink)
         }
     }
 }

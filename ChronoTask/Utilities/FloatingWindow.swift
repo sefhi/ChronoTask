@@ -4,25 +4,18 @@ final class FloatingWindow: NSWindow {
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
-            styleMask: [.titled, .fullSizeContentView],
+            styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
 
         level = .floating
-        titlebarAppearsTransparent = true
-        titleVisibility = .hidden
         isMovableByWindowBackground = true
-        backgroundColor = NSColor(red: 0.059, green: 0.098, blue: 0.137, alpha: 1.0) // 0F1923
+        backgroundColor = NSColor(red: 0.980, green: 0.972, blue: 0.952, alpha: 1.0) // FAF8F3
         isOpaque = false
         hasShadow = true
 
-        // Hide traffic light buttons
-        standardWindowButton(.closeButton)?.isHidden = true
-        standardWindowButton(.miniaturizeButton)?.isHidden = true
-        standardWindowButton(.zoomButton)?.isHidden = true
-
-        // Keep on top
+        // Keep on top across spaces
         collectionBehavior = [.canJoinAllSpaces, .stationary]
     }
 

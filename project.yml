@@ -16,7 +16,12 @@ targets:
     type: application
     platform: macOS
     sources:
-      - ChronoTask
+      - path: ChronoTask
+        excludes:
+          - "Resources/Fonts"
+      - path: ChronoTask/Resources/Fonts
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.chronotask.app
