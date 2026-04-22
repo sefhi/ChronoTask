@@ -26,7 +26,7 @@ final class MenuBarController {
         refresh.target = self
         menu.addItem(refresh)
 
-        let logout = NSMenuItem(title: "Settings / Logout", action: #selector(logoutAction), keyEquivalent: "")
+        let logout = NSMenuItem(title: "Change API key", action: #selector(logoutAction), keyEquivalent: "")
         logout.target = self
         menu.addItem(logout)
 

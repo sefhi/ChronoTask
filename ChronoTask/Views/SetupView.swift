@@ -21,8 +21,7 @@ struct SetupView: View {
             }
         }
         .preferredColorScheme(.light)
-        .frame(width: Theme.windowWidth)
-        .frame(minHeight: 360)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contextMenu {
             Button("Quit ChronoTask") { NSApplication.shared.terminate(nil) }
         }

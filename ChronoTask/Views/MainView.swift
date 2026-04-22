@@ -49,13 +49,14 @@ struct MainView: View {
                 Spacer()
             }
 
-            // Status pill top-right
+            // Top row: settings menu (left) + status pill (right)
             VStack {
-                HStack {
+                HStack(alignment: .center) {
+                    settingsMenu
                     Spacer()
                     StatusPill(state: pillState)
                 }
-                .padding(.trailing, 16)
+                .padding(.horizontal, 16)
                 .padding(.top, 12)
                 Spacer()
             }
@@ -82,7 +83,7 @@ struct MainView: View {
                 .zIndex(20)
             }
         }
-        .frame(width: Theme.windowWidth, height: Theme.windowHeight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preferredColorScheme(.light)
         .onHover { hovering in isHovered = hovering }
         .contextMenu { windowContextMenu }
@@ -113,6 +114,26 @@ struct MainView: View {
     }
 
     // MARK: - Subviews
+
+    private var settingsMenu: some View {
+        Menu {
+            Button("Refresh tasks") { Task { await loadTasks() } }
+            Button("Change API key") { appState.logout() }
+            Divider()
+            Button("Quit ChronoTask") { NSApplication.shared.terminate(nil) }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(Theme.muted)
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .opacity(isHovered ? 1 : 0)
+        .animation(Theme.hoverAnimation, value: isHovered)
+    }
 
     private var dragDots: some View {
         HStack(spacing: 3) {
@@ -163,7 +184,7 @@ struct MainView: View {
             Task { await loadTasks() }
         }
         Divider()
-        Button("Settings / Logout") {
+        Button("Change API key") {
             appState.logout()
         }
         Divider()

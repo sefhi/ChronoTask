@@ -14,8 +14,7 @@ struct ContentRouter: View {
                 MainView()
             }
         }
-        .frame(width: Theme.windowWidth)
-        .frame(minHeight: Theme.windowHeight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preferredColorScheme(.light)
     }
 
