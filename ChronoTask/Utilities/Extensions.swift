@@ -20,27 +20,6 @@ extension NSColor {
     }
 }
 
-extension NSImage {
-    /// The receiver's alpha channel filled with `color`.
-    ///
-    /// SF Symbols take a colour through `SymbolConfiguration(paletteColors:)`; asset
-    /// catalogue art does not, so the running-state status item mark is tinted here
-    /// instead. `color` must already be resolved against the target appearance —
-    /// a dynamic `NSColor` would resolve against whatever appearance happens to be
-    /// current while the image is drawn.
-    func tinted(with color: NSColor) -> NSImage {
-        let tinted = NSImage(size: size, flipped: false) { rect in
-            color.setFill()
-            rect.fill()
-            self.draw(in: rect, from: .zero, operation: .destinationIn, fraction: 1)
-            return true
-        }
-        // A template image would discard the tint.
-        tinted.isTemplate = false
-        return tinted
-    }
-}
-
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

@@ -43,7 +43,7 @@ That builds the app, installs it into `/Applications` and launches it.
 | `./install.sh --dev` | Install into `./Build` instead, leaving `/Applications` alone |
 | `./install.sh --uninstall` | Remove the app and the login item |
 
-**Requirements.** macOS 13 (Ventura) or later. The installer uses full Xcode if it is selected, and otherwise falls back to the Swift compiler that ships with the Command Line Tools — the app works either way; only the app icon needs Xcode. For the Xcode path you also need [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`), because the `.xcodeproj` is generated rather than committed.
+**Requirements.** macOS 13 (Ventura) or later, and nothing else. The installer uses full Xcode if it happens to be selected, and otherwise falls back to the Swift compiler in the Command Line Tools; both paths produce the same app, icon included. For the Xcode path you also need [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`), because the `.xcodeproj` is generated rather than committed.
 
 To use full Xcode if you have it installed:
 
@@ -157,6 +157,7 @@ ChronoTask/
 │   ├── Theme.swift                    # Design tokens, light/dark aware
 │   ├── Surfaces.swift                 # Glass and inset surface modifiers
 │   ├── GlassPanel.swift               # Translucent NSPanel + visual effect view
+│   ├── StatusItemIcon.swift           # The menu bar mark, drawn in code
 │   ├── GlobalHotKey.swift             # ⌥⌘T, via Carbon (no Accessibility prompt)
 │   ├── StatusItemAnchor.swift         # Panel positioning geometry
 │   ├── ContentSizingHostingController.swift  # Content-driven window height
@@ -186,7 +187,7 @@ ChronoTask/
 
 **<kbd>⌥⌘T</kbd> does nothing.** Another app has claimed it. The shortcut is defined in `GlobalHotKey.Combo.togglePanel`.
 
-**The icon is missing from the menu bar.** With many icons, macOS hides the ones that do not fit — more so on notched displays. ChronoTask still works; the panel just falls back to the top-right corner of the screen.
+**The icon is missing from the menu bar.** With many icons, macOS hides the ones that do not fit — more so on notched displays. ChronoTask still works; <kbd>⌥⌘T</kbd> opens the panel, which then falls back to the top-right corner of the screen.
 
 **macOS keeps asking for Keychain access.** Rebuilding produces a new ad-hoc signature, which macOS treats as a different app. Installing over the same path with `./install.sh` keeps it stable.
 

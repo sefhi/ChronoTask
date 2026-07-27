@@ -65,24 +65,35 @@ final class StatusItemController: NSObject {
 
     // MARK: - Rendering
 
+    /// A status item whose button has neither an image nor a title collapses to zero
+    /// width: the app keeps running and still answers ⌥⌘T, but it disappears from
+    /// the menu bar with no hint as to why. Every branch below therefore leaves the
+    /// button with something to draw.
     func render(state: TimerState, elapsed: TimeInterval) {
         guard let button = statusItem?.button else { return }
 
-        button.image = image(for: state)
+        let icon = image(for: state)
+        button.image = icon
 
         switch state {
         case .idle:
-            button.imagePosition = .imageOnly
-            button.attributedTitle = NSAttributedString(string: "")
+            button.imagePosition = icon == nil ? .noImage : .imageOnly
+            button.attributedTitle = icon == nil
+                ? Self.attributedTime(Self.fallbackGlyph)
+                : NSAttributedString(string: "")
             statusItem.length = NSStatusItem.variableLength
             lastTitleLength = -1
         case .running, .syncing:
+            // The clock is itself a title, so these states cannot collapse.
             let text = Self.menuBarTime(elapsed)
-            button.imagePosition = .imageLeading
+            button.imagePosition = icon == nil ? .noImage : .imageLeading
             button.attributedTitle = Self.attributedTime(text)
-            applyStableLength(for: text, image: button.image)
+            applyStableLength(for: text, image: icon)
         }
     }
+
+    /// Shown only if drawing the mark somehow fails; visible beats correct here.
+    private static let fallbackGlyph = "⏱"
 
     /// `H:MM:SS`, without the leading zero on hours.
     static func menuBarTime(_ elapsed: TimeInterval) -> String {
@@ -123,26 +134,21 @@ final class StatusItemController: NSObject {
 
         switch state {
         case .idle:
-            // The app's own mark, drawn for 18pt: a heavier ring than the app icon's,
-            // because at menu bar size a hairline dial disappears.
-            image = NSImage(named: "MenuBarStopwatch")
-            image?.accessibilityDescription = "ChronoTask"
-            // Template images invert correctly on light and dark menu bars.
-            image?.isTemplate = true
+            image = StatusItemIcon.idle()
         case .syncing:
             image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath",
                             accessibilityDescription: "ChronoTask sincronizando")?
                 .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 13, weight: .medium))
             image?.isTemplate = true
         case .running:
-            // The running mark dims the unswept part of the dial, so the accent reads
-            // as progress rather than as a flat recolour.
+            // Resolved here rather than inside the drawing block: a dynamic NSColor
+            // would otherwise resolve against whatever appearance happens to be
+            // current while the image is rasterised.
             var accent = Theme.NS.accent
             NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
                 accent = Theme.NS.accent.usingColorSpace(.sRGB) ?? accent
             }
-            image = NSImage(named: "MenuBarStopwatchRunning")?.tinted(with: accent)
-            image?.accessibilityDescription = "ChronoTask grabando"
+            image = StatusItemIcon.running(tint: accent)
         }
 
         imageCache[key] = image

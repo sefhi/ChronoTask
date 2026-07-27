@@ -72,8 +72,6 @@ if xcodebuild -version >/dev/null 2>&1; then
   BUILT="$BUILD_DIR/Release/${APP_NAME}.app"
 else
   echo "==> Building with the Swift compiler (Xcode not selected)"
-  echo "    Tip: for an app icon, install Xcode and run:"
-  echo "         sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
   BUILT="$BUILD_DIR/${APP_NAME}.app"
   rm -rf "$BUILD_DIR"
   mkdir -p "$BUILT/Contents/MacOS" "$BUILT/Contents/Resources/Fonts"
@@ -89,9 +87,31 @@ else
   cp "$REPO/ChronoTask/Info.plist" "$BUILT/Contents/Info.plist"
   cp "$REPO"/ChronoTask/Resources/Fonts/*.ttf "$BUILT/Contents/Resources/Fonts/"
   printf 'APPL????' > "$BUILT/Contents/PkgInfo"
-  # XcodeGen normally substitutes these at build time.
+
+  # Info.plist is written for Xcode, which expands these at build time. Left as-is
+  # they reach the bundle as literal "$(…)" strings, and LaunchServices reads a
+  # nonsense minimum system version.
   plutil -replace CFBundleExecutable -string "$APP_NAME" "$BUILT/Contents/Info.plist"
   plutil -replace CFBundleIdentifier -string "$BUNDLE_ID" "$BUILT/Contents/Info.plist"
+  plutil -replace LSMinimumSystemVersion -string "13.0" "$BUILT/Contents/Info.plist"
+
+  # `swiftc` cannot compile an asset catalogue and `actool` ships only with full
+  # Xcode, but `iconutil` is part of the base system — which is enough for the app
+  # icon. The menu bar mark needs nothing here: it is drawn in code precisely so
+  # that it cannot go missing on this path (see Utilities/StatusItemIcon.swift).
+  ICONSET="$BUILD_DIR/AppIcon.iconset"
+  APPICON_SRC="$REPO/ChronoTask/Assets.xcassets/AppIcon.appiconset"
+  if [ -d "$APPICON_SRC" ]; then
+    mkdir -p "$ICONSET"
+    # The appiconset uses the same icon_<size>[@2x].png names iconutil expects.
+    cp "$APPICON_SRC"/icon_*.png "$ICONSET/" 2>/dev/null || true
+    if iconutil -c icns "$ICONSET" -o "$BUILT/Contents/Resources/AppIcon.icns" 2>/dev/null; then
+      plutil -replace CFBundleIconFile -string "AppIcon" "$BUILT/Contents/Info.plist"
+    else
+      echo "    Note: could not build the app icon; the app is unaffected."
+    fi
+    rm -rf "$ICONSET"
+  fi
 fi
 
 # ---------------------------------------------------------------- install
