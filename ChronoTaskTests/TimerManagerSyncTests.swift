@@ -79,19 +79,22 @@ final class TimerManagerSyncTests: XCTestCase {
 
         timer.switchTask(to: TestSupport.makeTask(id: "second", name: "Segunda"))
 
+        // Wait for the upload to actually park before releasing it. A bare
+        // `Task.yield()` here was not enough: releasing could land before the call
+        // ever blocked, and the test then passed without observing any ordering.
+        let parked = await TestSupport.waitUntil { self.api.waitingCreateCount == 1 }
+        XCTAssertTrue(parked, "the upload never reached the blocking point")
+
         // While the upload is blocked, the new task must not be running yet.
-        await Task.yield()
         XCTAssertNotEqual(timer.currentTask?.id, "second",
                           "The next task started before the previous entry was sent")
+        XCTAssertEqual(timer.state, .syncing)
 
         api.releaseCreate()
 
-        // Give the continuation a chance to complete the switch.
-        for _ in 0..<50 where timer.currentTask?.id != "second" {
-            try? await Task.sleep(nanoseconds: 20_000_000)
-        }
+        let switched = await TestSupport.waitUntil { self.timer.currentTask?.id == "second" }
+        XCTAssertTrue(switched, "the switch never completed after the upload was released")
 
-        XCTAssertEqual(timer.currentTask?.id, "second")
         XCTAssertEqual(timer.state, .running)
         XCTAssertEqual(api.createdEntries.first?.taskId, "first")
     }

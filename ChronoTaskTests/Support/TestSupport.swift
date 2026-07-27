@@ -76,4 +76,19 @@ enum TestSupport {
         formatter.timeZone = TimeZone(identifier: "UTC")
         return formatter.date(from: iso)!
     }
+
+    /// Polls until `condition` holds, returning whether it did before the timeout.
+    ///
+    /// The work being waited on runs on the concurrent executor with nothing to
+    /// await from the main actor, so polling is the honest option — but the result
+    /// must be asserted, or a timeout reads as success.
+    static func waitUntil(timeout: TimeInterval = 3,
+                          _ condition: () -> Bool) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() {
+            if Date() >= deadline { return condition() }
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        return true
+    }
 }
