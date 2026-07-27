@@ -6,145 +6,129 @@ struct SetupView: View {
     @State private var isValidating = false
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                switch appState.authState {
-                case .needsAuth, .loading:
-                    tokenEntryView
-                case .needsWorkspace:
-                    workspacePickerView
-                default:
-                    EmptyView()
-                }
+        VStack(spacing: 0) {
+            switch appState.authState {
+            case .needsAuth, .loading:
+                tokenEntryView
+            case .needsWorkspace:
+                workspacePickerView
+            default:
+                EmptyView()
             }
         }
-        .preferredColorScheme(.light)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // No background of its own: the panel's glass shows through.
+        .frame(width: Theme.panelWidth)
         .contextMenu {
-            Button("Quit ChronoTask") { NSApplication.shared.terminate(nil) }
+            Button("Salir de ChronoTask") { NSApplication.shared.terminate(nil) }
         }
     }
 
     // MARK: - Token Entry
 
     private var tokenEntryView: some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: 32)
+        VStack(spacing: 18) {
+            RoundedRectangle(cornerRadius: Theme.radiusSurface, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Theme.clickUpFrom, Theme.clickUpTo],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+                .frame(width: 52, height: 52)
+                .overlay(
+                    // SF Symbols must use `.system`; they cannot render in a custom face.
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                )
 
-            VStack(spacing: 18) {
-                // ClickUp logo mark — kept as small gradient tile
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(LinearGradient(
-                        colors: [Theme.clickUpFrom, Theme.clickUpTo],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
-                    .frame(width: 52, height: 52)
-                    .overlay(
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                    )
+            Text("Conecta ClickUp")
+                .font(Theme.setupTitleFont)
+                .foregroundColor(Theme.ink)
 
-                Text("Connect ClickUp")
-                    .font(Theme.setupTitleFont)
-                    .foregroundColor(Theme.ink)
+            Text("Introduce tu token personal de API para registrar tiempo directamente en tus tareas.")
+                .font(Theme.bodyFont)
+                .foregroundColor(Theme.inkSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+                .padding(.horizontal, 8)
 
-                Text("Enter your personal API token to start tracking time directly to your tasks.")
-                    .font(Theme.bodyFont)
-                    .foregroundColor(Theme.muted)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(2)
-                    .padding(.horizontal, 8)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("TOKEN DE API")
+                    .font(Theme.labelFont)
+                    .tracking(Theme.trackingLabel)
+                    .foregroundColor(Theme.inkSecondary)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("API TOKEN")
-                        .font(Theme.labelFont)
-                        .tracking(1.8)
-                        .foregroundColor(Theme.muted)
+                HStack(spacing: 0) {
+                    SecureField("pk_…", text: $tokenInput)
+                        .textFieldStyle(.plain)
+                        .font(Theme.tokenFieldFont)
+                        .foregroundColor(Theme.ink)
+                        .padding(.leading, 12)
 
-                    HStack(spacing: 0) {
-                        SecureField("pk_...", text: $tokenInput)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13, design: .monospaced))
-                            .foregroundColor(Theme.ink)
-                            .padding(.leading, 12)
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.inkQuaternary)
+                        .padding(.trailing, 12)
+                }
+                .frame(height: 40)
+                .insetSurface(radius: Theme.radiusField)
 
-                        Image(systemName: "key.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(Theme.muted)
-                            .padding(.trailing, 12)
-                    }
-                    .frame(height: 38)
-                    .background(Theme.background)
-                    .overlay(
-                        Rectangle()
-                            .stroke(Theme.hairline, lineWidth: 1)
-                    )
-
-                    if let error = appState.errorMessage {
-                        Text(error)
-                            .font(.system(size: 11))
-                            .foregroundColor(Theme.error)
-                            .lineLimit(2)
-                    }
-
-                    Button(action: validateToken) {
-                        HStack(spacing: 10) {
-                            if isValidating {
-                                ProgressView()
-                                    .scaleEffect(0.6)
-                                    .frame(width: 14, height: 14)
-                                    .tint(Theme.background)
-                            }
-                            Text(isValidating ? "CONNECTING" : "CONNECT ACCOUNT")
-                                .font(Theme.buttonFont)
-                                .tracking(2.5)
-                        }
-                        .foregroundColor(Theme.background)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .background(tokenInput.isEmpty ? Theme.muted : Theme.accent)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(tokenInput.isEmpty || isValidating)
+                if let error = appState.errorMessage {
+                    Text(error)
+                        .font(Theme.errorFont)
+                        .foregroundColor(Theme.error)
+                        .lineLimit(2)
                 }
 
-                Text("Where can I find my API token?")
-                    .font(Theme.labelFont)
-                    .tracking(1.4)
-                    .foregroundColor(Theme.muted)
-                    .padding(.top, 4)
+                Button(action: validateToken) {
+                    HStack(spacing: 10) {
+                        if isValidating {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .frame(width: 14, height: 14)
+                                .tint(Theme.onAccent)
+                        }
+                        Text(isValidating ? "CONECTANDO" : "CONECTAR CUENTA")
+                            .font(Theme.monoLabelFont)
+                            .tracking(Theme.trackingCta)
+                    }
+                    .foregroundColor(Theme.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                }
+                // The style already dims to 45% when disabled.
+                .buttonStyle(.chronoAccent)
+                .disabled(tokenInput.isEmpty || isValidating)
             }
-            .padding(.horizontal, 28)
 
-            Spacer()
+            Text("¿Dónde encuentro mi token de API?")
+                .font(Theme.labelFont)
+                .tracking(1.4)
+                .foregroundColor(Theme.inkSecondary)
+                .padding(.top, 4)
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 28)
     }
 
     // MARK: - Workspace Picker
 
     private var workspacePickerView: some View {
         VStack(spacing: 16) {
-            Spacer().frame(height: 32)
-
             Image(systemName: "building.2")
                 .font(.system(size: 26))
                 .foregroundColor(Theme.accent)
 
-            Text("Select Workspace")
+            Text("Elige un espacio")
                 .font(Theme.setupTitleFont)
                 .foregroundColor(Theme.ink)
 
             if case .needsWorkspace = appState.authState {
                 WorkspaceList(appState: appState)
             }
-
-            Spacer()
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 28)
     }
 
     // MARK: - Actions
@@ -162,6 +146,7 @@ private struct WorkspaceList: View {
     @ObservedObject var appState: AppState
     @State private var teams: [ClickUpTeam] = []
     @State private var isLoading = true
+    @State private var loadError: String?
 
     var body: some View {
         Group {
@@ -169,11 +154,17 @@ private struct WorkspaceList: View {
                 ProgressView()
                     .scaleEffect(0.8)
                     .tint(Theme.ink)
+                    .frame(height: 80)
+            } else if let loadError {
+                Text(loadError)
+                    .font(Theme.errorFont)
+                    .foregroundColor(Theme.error)
+                    .multilineTextAlignment(.center)
             } else {
                 ScrollView {
                     VStack(spacing: 6) {
                         ForEach(teams) { team in
-                            Button(action: { appState.selectTeam(team) }) {
+                            Button { appState.selectTeam(team) } label: {
                                 HStack {
                                     Text(team.name)
                                         .font(Theme.bodyFont)
@@ -181,26 +172,26 @@ private struct WorkspaceList: View {
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 10, weight: .medium))
-                                        .foregroundColor(Theme.muted)
+                                        .foregroundColor(Theme.inkQuaternary)
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 11)
                                 .frame(maxWidth: .infinity)
-                                .overlay(
-                                    Rectangle()
-                                        .stroke(Theme.hairline, lineWidth: 1)
-                                )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.chronoInset(radius: Theme.radiusRow))
                         }
                     }
                 }
+                .frame(maxHeight: 220)
             }
         }
         .task {
             do {
                 teams = try await ClickUpAPI.shared.getTeams()
-            } catch {}
+            } catch {
+                // Previously swallowed silently, leaving an empty list with no reason.
+                loadError = error.localizedDescription
+            }
             isLoading = false
         }
     }

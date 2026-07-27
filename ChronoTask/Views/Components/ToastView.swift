@@ -38,19 +38,21 @@ struct ToastView: View {
                 .font(.system(size: 12))
                 .foregroundColor(toast.type.color)
             Text(toast.message)
-                .font(.system(size: 11))
-                .foregroundColor(Theme.textPrimary)
+                .font(Theme.emptyFont)
+                .foregroundColor(Theme.ink)
                 .lineLimit(1)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Theme.surfaceLight.opacity(0.95))
-        .cornerRadius(Theme.cornerRadius)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                .stroke(Theme.border, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+        .padding(.vertical, 7)
+        // The one place a SwiftUI material earns its keep: the toast floats over the
+        // panel's own content, so it needs to separate itself from what is behind it.
+        .background(.regularMaterial,
+                    in: RoundedRectangle(cornerRadius: Theme.radiusToast, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.radiusToast, style: .continuous)
+                .strokeBorder(Theme.glassStroke, lineWidth: Theme.strokeHairline)
+        }
+        .shadow(color: Theme.shadowToast, radius: Theme.shadowToastRadius, y: Theme.shadowToastY)
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 }

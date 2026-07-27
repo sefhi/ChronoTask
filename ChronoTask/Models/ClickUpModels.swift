@@ -52,26 +52,31 @@ struct ClickUpTeamsResponse: Codable {
     let teams: [ClickUpTeam]
 }
 
-// MARK: - Space
-
-struct ClickUpSpace: Codable, Identifiable {
-    let id: String
-    let name: String
-}
-
-struct ClickUpSpacesResponse: Codable {
-    let spaces: [ClickUpSpace]
-}
-
 // MARK: - Task
 
-struct ClickUpTask: Codable, Identifiable {
+struct ClickUpTask: Codable, Identifiable, Equatable, Hashable {
     let id: String
     let name: String
     let status: ClickUpStatus?
     let list: ClickUpListRef?
     let folder: ClickUpFolderRef?
     let url: String?
+
+    /// Written out rather than synthesised so that adding a field later does not
+    /// silently break every call site that relies on the memberwise initialiser.
+    init(id: String,
+         name: String,
+         status: ClickUpStatus? = nil,
+         list: ClickUpListRef? = nil,
+         folder: ClickUpFolderRef? = nil,
+         url: String? = nil) {
+        self.id = id
+        self.name = name
+        self.status = status
+        self.list = list
+        self.folder = folder
+        self.url = url
+    }
 
     /// Display name including list context
     var displayName: String {
@@ -82,18 +87,18 @@ struct ClickUpTask: Codable, Identifiable {
     }
 }
 
-struct ClickUpStatus: Codable {
+struct ClickUpStatus: Codable, Equatable, Hashable {
     let status: String
     let color: String?
     let type: String?
 }
 
-struct ClickUpListRef: Codable {
+struct ClickUpListRef: Codable, Equatable, Hashable {
     let id: String
     let name: String?
 }
 
-struct ClickUpFolderRef: Codable {
+struct ClickUpFolderRef: Codable, Equatable, Hashable {
     let id: String
     let name: String?
 }
@@ -110,18 +115,78 @@ struct ClickUpTimeEntry: Codable {
     let start: String?
     let end: String?
     let duration: String?
+    /// Present when listing entries. Used to defensively drop other people's rows —
+    /// the list endpoint's `assignee` filter is Owner/Admin-only, so we cannot rely
+    /// on the server to scope the response for a regular member.
+    let user: ClickUpTimeEntryUser?
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         task = try container.decodeIfPresent(ClickUpTimeEntryTask.self, forKey: .task)
+        user = try container.decodeIfPresent(ClickUpTimeEntryUser.self, forKey: .user)
         id = try container.decodeFlexibleString(forKey: .id)
         start = try container.decodeFlexibleString(forKey: .start)
         end = try container.decodeFlexibleString(forKey: .end)
         duration = try container.decodeFlexibleString(forKey: .duration)
     }
 
+    init(id: String? = nil,
+         task: ClickUpTimeEntryTask? = nil,
+         start: String? = nil,
+         end: String? = nil,
+         duration: String? = nil,
+         user: ClickUpTimeEntryUser? = nil) {
+        self.id = id
+        self.task = task
+        self.start = start
+        self.end = end
+        self.duration = duration
+        self.user = user
+    }
+
     private enum CodingKeys: String, CodingKey {
-        case id, task, start, end, duration
+        case id, task, start, end, duration, user
+    }
+}
+
+extension ClickUpTimeEntry {
+    var durationMilliseconds: Int? { duration.flatMap { Int($0) } }
+
+    var startDate: Date? {
+        start.flatMap { Int($0) }.map { Date(timeIntervalSince1970: Double($0) / 1000) }
+    }
+
+    /// ClickUp reports a *running* timer as a negative duration. Such entries must be
+    /// excluded from any total — treating one as elapsed time yields ~1.7e12 seconds.
+    var isRunning: Bool { (durationMilliseconds ?? 0) < 0 }
+
+    var trackedSeconds: TimeInterval { max(0, Double(durationMilliseconds ?? 0) / 1000) }
+}
+
+struct ClickUpTimeEntryUser: Codable {
+    let id: Int?
+    let username: String?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        username = try container.decodeIfPresent(String.self, forKey: .username)
+        // The API sends this id as a number in some payloads and a string in others.
+        if let intId = try? container.decode(Int.self, forKey: .id) {
+            id = intId
+        } else if let stringId = try? container.decode(String.self, forKey: .id) {
+            id = Int(stringId)
+        } else {
+            id = nil
+        }
+    }
+
+    init(id: Int?, username: String? = nil) {
+        self.id = id
+        self.username = username
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, username
     }
 }
 
@@ -153,4 +218,10 @@ struct ClickUpTimeEntryTask: Codable {
 
 struct ClickUpTimeEntryResponse: Codable {
     let data: ClickUpTimeEntry
+}
+
+/// The list endpoint returns an array under `data`, unlike the create endpoint which
+/// returns a single object under the same key.
+struct ClickUpTimeEntriesResponse: Codable {
+    let data: [ClickUpTimeEntry]
 }

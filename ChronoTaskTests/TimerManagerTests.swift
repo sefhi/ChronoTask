@@ -1,18 +1,36 @@
 import XCTest
 @testable import ChronoTask
 
+/// `@MainActor` because `TimerManager` is now isolated to it — the timer drives UI
+/// state. The test bodies themselves are unchanged.
+@MainActor
 final class TimerManagerTests: XCTestCase {
     var timerManager: TimerManager!
+    private var defaults: TestSupport.Defaults!
+    private var api: MockClickUpAPI!
 
-    override func setUp() {
-        super.setUp()
-        timerManager = TimerManager()
+    // The `async` variants of setUp/tearDown are what inherit the class's actor
+    // isolation; the synchronous overrides stay nonisolated and cannot touch
+    // main-actor state.
+    override func setUp() async throws {
+        try await super.setUp()
+        // Injected so the suite neither reaches the network nor writes to the
+        // developer's real UserDefaults.
+        defaults = TestSupport.Defaults()
+        api = MockClickUpAPI()
+        timerManager = TimerManager(
+            api: api,
+            sessionStore: SessionStore(defaults: defaults.store, key: "legacy.session")
+        )
         timerManager.configure(teamId: "test-team")
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
+        defaults.destroy()
         timerManager = nil
-        super.tearDown()
+        api = nil
+        defaults = nil
+        try await super.tearDown()
     }
 
     // MARK: - State Transitions

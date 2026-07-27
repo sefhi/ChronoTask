@@ -18,12 +18,18 @@ final class AppState: ObservableObject {
     }
 
     private func loadSavedToken() {
-        guard let token = KeychainService.loadToken() else {
-            authState = .needsAuth
-            return
-        }
-        api.token = token
         Task { @MainActor in
+            // Read off the main thread: `SecItemCopyMatching` blocks, and while it
+            // does nothing else runs — including installing the menu bar item, which
+            // would leave the app with no visible presence at all.
+            let saved = await Task.detached { KeychainService.loadToken() }.value
+
+            guard let token = saved else {
+                authState = .needsAuth
+                return
+            }
+            api.token = token
+
             do {
                 NSLog("[AppState] Validating saved token...")
                 let user = try await api.validateToken(token)

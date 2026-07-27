@@ -7,9 +7,11 @@ struct TimerDisplay: View {
         Text(elapsed.timerFormatted)
             .font(Theme.timerFont)
             .monospacedDigit()
-            .tracking(-1)
+            .tracking(Theme.trackingTimer)
             .foregroundColor(Theme.ink)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
+            .accessibilityLabel("Tiempo transcurrido")
+            .accessibilityValue(elapsed.timerFormatted)
     }
 }

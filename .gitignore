@@ -20,6 +20,12 @@ xcuserdata/
 *.dSYM
 .idea
 
+# install.sh scratch space
+.build-tmp/
+
+# Coverage output from swiftc/xcodebuild runs
+*.profraw
+
 # Swift Package Manager
 .build/
 Packages/

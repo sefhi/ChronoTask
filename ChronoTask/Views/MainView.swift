@@ -1,347 +1,219 @@
+import AppKit
 import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject var appState: AppState
-    @StateObject private var timerManager = TimerManager()
+    /// All owned by `AppEnvironment`: the menu bar clock and the peek observe them
+    /// while this view is not on screen at all.
+    @EnvironmentObject var timerManager: TimerManager
+    @EnvironmentObject var taskStore: TaskStore
+    @EnvironmentObject var dailyTotal: DailyTotalService
 
-    @State private var tasks: [ClickUpTask] = []
-    @State private var selectedTask: ClickUpTask?
-    @State private var isLoadingTasks = true
-    @State private var loadError: String?
-    @State private var toast: Toast?
-    @State private var keyMonitor: Any?
+    @StateObject private var viewModel: MainViewModel
+    @FocusState private var searchFocused: Bool
 
-    @State private var isHovered = false
-    @State private var pickerOpen = false
+    init(taskStore: TaskStore) {
+        _viewModel = StateObject(wrappedValue: MainViewModel(taskStore: taskStore))
+    }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Theme.background.ignoresSafeArea()
+        VStack(alignment: .leading, spacing: 0) {
+            StatusPill(state: pillState)
 
-            VStack(alignment: .leading, spacing: 0) {
-                Spacer().frame(height: Theme.paddingTop)
+            TimerDisplay(elapsed: timerManager.elapsed)
+                .padding(.top, 6)
 
-                TimerDisplay(elapsed: timerManager.elapsed)
-                    .padding(.horizontal, Theme.paddingWindowH)
+            TodaySummaryLine(total: displayedTotal, isStale: dailyTotal.isStale)
+                .padding(.top, 1)
 
-                Spacer().frame(height: Theme.gapRows)
-
-                taskRow
-                    .padding(.horizontal, Theme.paddingWindowH)
-
-                Spacer(minLength: 0)
-
-                StartStopBar(
-                    isRunning: timerManager.isRunning,
-                    isDisabled: !timerManager.isRunning
-                        && (selectedTask == nil || tasks.isEmpty || timerManager.isSyncing),
-                    action: toggleTimer
+            if let recovery = timerManager.pendingRecovery {
+                SessionRecoveryPrompt(
+                    taskName: recovery.taskName,
+                    knownDuration: recovery.knownDuration,
+                    onAccept: {
+                        timerManager.acceptRecovery()
+                        viewModel.showToast("Sesión recuperada", type: .success)
+                    },
+                    onDiscard: { timerManager.discardRecovery() }
                 )
-            }
-
-            // Drag affordance (reveal on hover)
-            VStack {
-                dragDots
-                    .frame(height: Theme.dragZoneHeight)
-                    .frame(maxWidth: .infinity)
-                    .opacity(isHovered ? 0.5 : 0)
-                    .animation(Theme.hoverAnimation, value: isHovered)
-                Spacer()
-            }
-
-            // Top row: settings menu (left) + status pill (right)
-            VStack {
-                HStack(alignment: .center) {
-                    settingsMenu
-                    Spacer()
-                    StatusPill(state: pillState)
-                }
-                .padding(.horizontal, 16)
                 .padding(.top, 12)
-                Spacer()
             }
 
-            // Task picker overlay
-            if pickerOpen {
-                TaskPickerOverlay(
-                    tasks: tasks,
-                    selectedTask: $selectedTask,
-                    isOpen: $pickerOpen
-                )
-                .transition(.opacity.combined(with: .offset(y: 6)))
-                .zIndex(10)
+            TaskCaption(task: taskStore.selectedTask,
+                        isRunning: timerManager.isRunning,
+                        isExpanded: viewModel.isListOpen) {
+                viewModel.toggleList()
             }
+            .padding(.top, 12)
 
-            // Toast (over the bar, above picker when relevant)
-            if let toast = toast {
-                VStack {
-                    Spacer()
-                    ToastView(toast: toast)
-                        .padding(.bottom, Theme.barHeight + 8)
-                }
-                .frame(maxWidth: .infinity)
-                .zIndex(20)
+            taskList
+
+            HStack(spacing: Theme.controlGap) {
+                PrimaryActionButton(isRunning: timerManager.isRunning,
+                                    isEnabled: canToggleTimer,
+                                    action: toggleTimer)
+                DailyTotalChip(total: displayedTotal)
             }
+            .padding(.top, 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .preferredColorScheme(.light)
-        .onHover { hovering in isHovered = hovering }
-        .contextMenu { windowContextMenu }
-        .task { await loadTasks() }
-        .onAppear {
-            configureTimer()
-            observeSleepWake()
-            observeMenuBarRefresh()
-            installKeyMonitor()
+        .padding(.horizontal, Theme.panelPadH)
+        .padding(.top, Theme.panelPadTop)
+        .padding(.bottom, Theme.panelPadBottom)
+        .frame(width: Theme.panelWidth)
+        .background { KeyCatcher(handler: handleKey).frame(width: 0, height: 0) }
+        .overlay(alignment: .top) { toastOverlay }
+        .onChange(of: viewModel.isListOpen) { isOpen in
+            searchFocused = isOpen
         }
-        .onDisappear {
-            if let monitor = keyMonitor {
-                NSEvent.removeMonitor(monitor)
-                keyMonitor = nil
-            }
-        }
-        .onChange(of: timerManager.syncError) { error in
-            if let error = error {
-                showToast(message: error, type: .error)
-            }
-        }
-        .onChange(of: selectedTask?.id) { _ in
+        .onChange(of: taskStore.selectedTask?.id) { _ in
             handleTaskChange()
         }
-        .onChange(of: pickerOpen) { open in
-            if open { isHovered = true }
+        .onChange(of: timerManager.syncError) { error in
+            if let error { viewModel.showToast(error, type: .error) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .panelDidPresent)) { _ in
+            viewModel.onPanelPresented()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openTaskListRequested)) { _ in
+            viewModel.openList()
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - Task list
 
-    private var settingsMenu: some View {
-        Menu {
-            Button("Refresh tasks") { Task { await loadTasks() } }
-            Button("Change API key") { appState.logout() }
-            Divider()
-            Button("Quit ChronoTask") { NSApplication.shared.terminate(nil) }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Theme.muted)
-                .frame(width: 16, height: 16)
-                .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .opacity(isHovered ? 1 : 0)
-        .animation(Theme.hoverAnimation, value: isHovered)
-    }
-
-    private var dragDots: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<3, id: \.self) { _ in
-                Circle()
-                    .fill(Theme.ink)
-                    .frame(width: 2.5, height: 2.5)
-            }
-        }
-    }
-
-    private var taskRow: some View {
-        Button(action: { openPicker() }) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(timerManager.isRunning ? Theme.accent : Theme.muted)
-                    .frame(width: Theme.statusDotSize, height: Theme.statusDotSize)
-
-                if tasks.isEmpty && !isLoadingTasks {
-                    Text("No tasks — retry")
-                        .font(Theme.bodyFont)
-                        .italic()
-                        .foregroundColor(Theme.muted)
-                } else {
-                    Text(selectedTask?.name ?? "Pick a task")
-                        .font(Theme.bodyFont)
-                        .foregroundColor(selectedTask == nil ? Theme.muted : Theme.ink)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-
-                Spacer(minLength: 8)
-
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(Theme.muted)
-                    .frame(width: Theme.expandIconSize, height: Theme.expandIconSize)
-            }
-            .frame(minHeight: 22)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+    /// Animating an explicit height (rather than using a transition) is what lets the
+    /// window grow smoothly: a transition would insert the list at full size on the
+    /// first frame, so the window would jump and the content would fade in after.
+    private var taskList: some View {
+        TaskListPanel(
+            tasks: viewModel.filteredTasks,
+            selectedTaskID: taskStore.selectedTask?.id,
+            focusedIndex: viewModel.focusedIndex,
+            emptyMessage: viewModel.emptyMessage,
+            query: $viewModel.query,
+            searchFocus: $searchFocused,
+            onSelect: { viewModel.select($0) },
+            onHoverRow: { viewModel.hoveredIndex = $0 }
+        )
+        .frame(height: viewModel.isListOpen ? Theme.listMaxHeight : 0, alignment: .top)
+        .clipped()
+        .opacity(viewModel.isListOpen ? 1 : 0)
+        // `clipped()` does not stop hit-testing outside the frame, so collapsed rows
+        // would still swallow clicks meant for the button below.
+        .allowsHitTesting(viewModel.isListOpen)
+        // Crucially this also takes the search field out of the focus chain. The
+        // collapsed list stays mounted so its height can animate, and AppKit would
+        // otherwise hand it first responder when the panel becomes key — swallowing
+        // every SPACE as typed text.
+        .disabled(!viewModel.isListOpen)
+        .accessibilityHidden(!viewModel.isListOpen)
+        // Scoped to `isListOpen` on purpose: a blanket `withAnimation` would drag the
+        // once-per-second timer tick into this animation.
+        .animation(Theme.listAnimation, value: viewModel.isListOpen)
     }
 
     @ViewBuilder
-    private var windowContextMenu: some View {
-        Button("Refresh tasks") {
-            Task { await loadTasks() }
-        }
-        Divider()
-        Button("Change API key") {
-            appState.logout()
-        }
-        Divider()
-        Button("Quit ChronoTask") {
-            NSApplication.shared.terminate(nil)
+    private var toastOverlay: some View {
+        if let toast = viewModel.toast {
+            ToastView(toast: toast)
+                .padding(.top, 8)
+                .transition(.opacity)
+                .animation(Theme.toastAnimation, value: toast)
         }
     }
 
-    // MARK: - Computed
+    // MARK: - Derived state
 
     private var pillState: PillState {
-        if timerManager.isRunning { return .running }
-        if tasks.isEmpty && !isLoadingTasks { return .empty }
-        return .idle
+        if timerManager.isRunning { return .recording }
+        return taskStore.selectedTask == nil ? .noTask : .ready
+    }
+
+    private var canToggleTimer: Bool {
+        if timerManager.isRunning { return true }
+        return taskStore.selectedTask != nil && !timerManager.isSyncing
+    }
+
+    private var displayedTotal: TimeInterval? {
+        dailyTotal.displayTotal(runningSince: timerManager.startTime,
+                                elapsed: timerManager.elapsed)
     }
 
     // MARK: - Actions
 
-    private func openPicker() {
-        withAnimation(Theme.pickerAnimation) { pickerOpen = true }
-    }
-
-    private func configureTimer() {
-        if case .authenticated(_, let team) = appState.authState {
-            timerManager.configure(teamId: team.id)
-        }
-    }
-
     private func toggleTimer() {
         if timerManager.isRunning {
-            timerManager.stop()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                if timerManager.syncError == nil && !timerManager.isSyncing {
-                    showToast(message: "Time entry saved", type: .success)
+            // Reports what actually happened instead of guessing after a fixed delay.
+            Task {
+                if case .synced = await timerManager.stopAndSync() {
+                    viewModel.showToast("Tiempo registrado", type: .success)
                 }
             }
-        } else if let task = selectedTask {
+        } else if let task = taskStore.selectedTask {
             timerManager.start(task: task)
         }
     }
 
     private func handleTaskChange() {
-        guard let newTask = selectedTask else { return }
-        if timerManager.isRunning {
-            timerManager.switchTask(to: newTask)
-        }
-    }
-
-    private func loadTasks() async {
-        guard case .authenticated(let user, let team) = appState.authState else {
-            NSLog("[MainView] loadTasks: not authenticated, skipping")
-            return
-        }
-        NSLog("[MainView] loadTasks: teamId=\(team.id) userId=\(user.id)")
-        isLoadingTasks = true
-        loadError = nil
-        do {
-            let fetched = try await ClickUpAPI.shared.getTasks(teamId: team.id, userId: user.id)
-            tasks = fetched.filter { Self.isEligibleForTracking($0) }
-            NSLog("[MainView] loadTasks: loaded \(fetched.count) tasks, \(tasks.count) eligible")
-            if tasks.isEmpty {
-                loadError = fetched.isEmpty
-                    ? "No tasks assigned to you"
-                    : "No tasks — all are closed or TIP"
-            }
-        } catch let error as APIError {
-            NSLog("[MainView] loadTasks API error: \(error)")
-            if case .unauthorized = error {
-                appState.logout()
-                return
-            }
-            loadError = error.localizedDescription
-            showToast(message: loadError ?? "Failed to load tasks", type: .error)
-        } catch {
-            NSLog("[MainView] loadTasks error: \(error)")
-            loadError = "Failed to load tasks: \(error.localizedDescription)"
-            showToast(message: loadError ?? "Failed to load tasks", type: .error)
-        }
-        isLoadingTasks = false
-    }
-
-    // MARK: - Toast
-
-    private func showToast(message: String, type: ToastType) {
-        withAnimation(Theme.defaultAnimation) {
-            toast = Toast(message: message, type: type)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation(Theme.defaultAnimation) {
-                toast = nil
-            }
-        }
-    }
-
-    // MARK: - Task eligibility
-
-    private static let excludedStatusNames: Set<String> = ["tip", "closed", "recently closed"]
-
-    private static func isEligibleForTracking(_ task: ClickUpTask) -> Bool {
-        guard let status = task.status else { return true }
-        let name = status.status.trimmingCharacters(in: .whitespaces).lowercased()
-        if excludedStatusNames.contains(name) { return false }
-        if status.type?.trimmingCharacters(in: .whitespaces).lowercased() == "closed" {
-            return false
-        }
-        return true
+        guard let task = taskStore.selectedTask, timerManager.isRunning else { return }
+        timerManager.switchTask(to: task)
     }
 
     // MARK: - Keyboard
 
-    private func installKeyMonitor() {
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            // Don't intercept while picker is open — it has its own handler.
-            if pickerOpen { return event }
-
-            // Space (49) or Enter (36) toggles play/stop
-            guard event.keyCode == 49 || event.keyCode == 36 else { return event }
-
-            // Don't intercept if a text field is focused (user is typing)
-            if let responder = NSApp.keyWindow?.firstResponder,
-               responder is NSTextView {
-                return event
+    private func handleKey(_ key: ChronoKey) -> Bool {
+        switch key {
+        case .escape:
+            // Two nested scopes: the list closes first, the panel only after.
+            if viewModel.isListOpen {
+                viewModel.closeList()
+            } else {
+                NotificationCenter.default.post(name: .panelDismissRequested, object: nil)
             }
+            return true
 
-            if timerManager.isRunning || selectedTask != nil {
-                toggleTimer()
-                return nil
+        case .down:
+            // With the list closed, ↓ opens it. It is the one key people try first,
+            // and it means the whole flow works without ever touching the mouse.
+            if !viewModel.isListOpen {
+                viewModel.openList()
+            } else {
+                viewModel.moveFocus(.down)
             }
-            return event
+            return true
+
+        case .up:
+            guard viewModel.isListOpen else { return false }
+            viewModel.moveFocus(.up)
+            return true
+
+        case .slash, .findShortcut:
+            // `/`, `⌘K` and `⌘F` all land on the search field.
+            viewModel.openList()
+            return true
+
+        case .enter:
+            // Enter now means "pick this row" and no longer doubles as start/stop —
+            // with the list open the old dual meaning was ambiguous.
+            guard viewModel.isListOpen else { return false }
+            viewModel.commitFocused()
+            return true
+
+        case .space:
+            guard canToggleTimer else { return false }
+            toggleTimer()
+            return true
+
+        case .quickPick(let index):
+            // ⌘1…⌘9 pick a task outright, and start it if nothing is running.
+            let tasks = viewModel.filteredTasks
+            guard tasks.indices.contains(index) else { return true }
+            let task = tasks[index]
+            viewModel.select(task)
+            if !timerManager.isRunning && !timerManager.isSyncing {
+                timerManager.start(task: task)
+            }
+            return true
         }
     }
-
-    // MARK: - Sleep/Wake
-
-    private func observeSleepWake() {
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didWakeNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            timerManager.recalculateElapsed()
-        }
-    }
-
-    // MARK: - Menu bar refresh
-
-    private func observeMenuBarRefresh() {
-        NotificationCenter.default.addObserver(
-            forName: .refreshTasksRequested,
-            object: nil,
-            queue: .main
-        ) { _ in
-            Task { await loadTasks() }
-        }
-    }
-}
-
-extension Notification.Name {
-    static let refreshTasksRequested = Notification.Name("refreshTasksRequested")
 }

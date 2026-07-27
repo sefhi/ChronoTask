@@ -1,4 +1,24 @@
+import AppKit
 import SwiftUI
+
+extension NSColor {
+    /// Mirrors `Color(hex:)` for the AppKit side of the app (window chrome, status item).
+    ///
+    /// Uses `srgbRed:` rather than `red:` on purpose: the latter builds a `deviceRGB`
+    /// colour, which is not colorimetrically identical to SwiftUI's `.sRGB` and shows
+    /// up as a hue shift between AppKit-drawn and SwiftUI-drawn surfaces.
+    convenience init(hex: String, alpha: CGFloat = 1.0) {
+        let digits = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var value: UInt64 = 0
+        Scanner(string: digits).scanHexInt64(&value)
+        self.init(
+            srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255,
+            alpha: alpha
+        )
+    }
+}
 
 extension Color {
     init(hex: String) {

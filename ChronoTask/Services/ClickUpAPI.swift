@@ -1,14 +1,33 @@
 import Foundation
 
+/// Retry/backoff timings. Injectable so tests can exercise the error paths without
+/// actually sleeping through three exponential backoffs.
+struct RetryPolicy {
+    var maxRetries: Int = 3
+    var baseDelay: TimeInterval = 1.0        // 429
+    var serverErrorDelay: TimeInterval = 0.5 // 5xx and transport errors
+
+    static let `default` = RetryPolicy()
+    static let noRetry = RetryPolicy(maxRetries: 1, baseDelay: 0, serverErrorDelay: 0)
+}
+
 final class ClickUpAPI {
     static let shared = ClickUpAPI()
-    private let baseURL = "https://api.clickup.com/api/v2"
-    private let session = URLSession.shared
-    private let maxRetries = 3
+    private let baseURL: String
+    private let session: URLSession
+    private let retryPolicy: RetryPolicy
 
     var token: String = ""
 
-    private init() {}
+    init(session: URLSession = .shared,
+         baseURL: String = "https://api.clickup.com/api/v2",
+         retryPolicy: RetryPolicy = .default) {
+        self.session = session
+        self.baseURL = baseURL
+        self.retryPolicy = retryPolicy
+    }
+
+    private var maxRetries: Int { retryPolicy.maxRetries }
 
     // MARK: - Auth
 
@@ -31,10 +50,20 @@ final class ClickUpAPI {
         var allTasks: [ClickUpTask] = []
         var page = 0
         let pageSize = 100
+        // Backstop: a server that keeps returning full pages would otherwise loop
+        // forever. 20 pages is 2000 tasks, far past anything one person is assigned.
+        let maxPages = 20
 
-        while true {
-            let path = "/team/\(teamId)/task?page=\(page)&assignees[]=\(userId)&subtasks=true&order_by=updated&reverse=true"
-            NSLog("[ClickUpAPI] getTasks page=\(page) path=\(baseURL + path)")
+        while page < maxPages {
+            let query = Self.query([
+                URLQueryItem(name: "page", value: String(page)),
+                URLQueryItem(name: "assignees[]", value: String(userId)),
+                URLQueryItem(name: "subtasks", value: "true"),
+                URLQueryItem(name: "order_by", value: "updated"),
+                URLQueryItem(name: "reverse", value: "true")
+            ])
+            let path = "/team/\(teamId)/task" + query
+            NSLog("[ClickUpAPI] getTasks page=\(page)")
             let response: ClickUpTasksResponse = try await request(path: path)
             NSLog("[ClickUpAPI] getTasks page=\(page) got \(response.tasks.count) tasks")
             allTasks.append(contentsOf: response.tasks)
@@ -71,7 +100,41 @@ final class ClickUpAPI {
         return response.data
     }
 
+    /// Time entries whose *start* falls within the given range.
+    ///
+    /// `assignee` is deliberately optional and unset by default: the parameter is
+    /// Owner/Admin-only and returns 400 for a regular member, while the endpoint
+    /// already scopes results to the authenticated user. Callers should still filter
+    /// by user id on the way out.
+    func getTimeEntries(
+        teamId: String,
+        startDate: Date,
+        endDate: Date,
+        assignee: Int? = nil
+    ) async throws -> [ClickUpTimeEntry] {
+        var items = [
+            URLQueryItem(name: "start_date", value: String(startDate.millisecondsSince1970)),
+            URLQueryItem(name: "end_date", value: String(endDate.millisecondsSince1970))
+        ]
+        if let assignee {
+            items.append(URLQueryItem(name: "assignee", value: String(assignee)))
+        }
+        let response: ClickUpTimeEntriesResponse = try await request(
+            path: "/team/\(teamId)/time_entries" + Self.query(items)
+        )
+        return response.data
+    }
+
     // MARK: - Networking
+
+    /// Percent-encodes a query string. `assignees[]` in particular must not be
+    /// interpolated raw.
+    private static func query(_ items: [URLQueryItem]) -> String {
+        var components = URLComponents()
+        components.queryItems = items
+        guard let encoded = components.percentEncodedQuery else { return "" }
+        return "?" + encoded
+    }
 
     private func request<T: Decodable>(
         path: String,
@@ -116,14 +179,14 @@ final class ClickUpAPI {
                     throw APIError.unauthorized
                 case 429:
                     // Exponential backoff for rate limiting
-                    let delay = pow(2.0, Double(attempt)) * 1.0
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    let delay = pow(2.0, Double(attempt)) * retryPolicy.baseDelay
+                    try await Self.sleep(delay)
                     lastError = APIError.rateLimited
                     continue
                 case 500...599:
                     // Retry on server errors
-                    let delay = pow(2.0, Double(attempt)) * 0.5
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    let delay = pow(2.0, Double(attempt)) * retryPolicy.serverErrorDelay
+                    try await Self.sleep(delay)
                     let body = String(data: data, encoding: .utf8) ?? ""
                     lastError = APIError.httpError(statusCode: httpResponse.statusCode, body: body)
                     continue
@@ -138,14 +201,19 @@ final class ClickUpAPI {
             } catch let error as URLError {
                 lastError = APIError.networkError(error.localizedDescription)
                 if attempt < maxRetries - 1 {
-                    let delay = pow(2.0, Double(attempt)) * 0.5
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    let delay = pow(2.0, Double(attempt)) * retryPolicy.serverErrorDelay
+                    try await Self.sleep(delay)
                     continue
                 }
             }
         }
 
         throw lastError
+    }
+
+    private static func sleep(_ seconds: TimeInterval) async throws {
+        guard seconds > 0 else { return }
+        try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
     }
 }
 

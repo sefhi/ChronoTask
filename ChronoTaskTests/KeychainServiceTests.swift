@@ -3,8 +3,22 @@ import XCTest
 
 final class KeychainServiceTests: XCTestCase {
 
+    /// These tests hit the real Keychain under the app's own service and account, so
+    /// without this the suite would delete the developer's actual ClickUp token.
+    private var preservedToken: String?
+
+    override func setUp() {
+        super.setUp()
+        preservedToken = KeychainService.loadToken()
+    }
+
     override func tearDown() {
-        KeychainService.deleteToken()
+        if let preservedToken {
+            try? KeychainService.saveToken(preservedToken)
+        } else {
+            KeychainService.deleteToken()
+        }
+        preservedToken = nil
         super.tearDown()
     }
 
