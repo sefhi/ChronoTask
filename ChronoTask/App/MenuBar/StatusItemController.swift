@@ -119,24 +119,30 @@ final class StatusItemController: NSObject {
         let key = "\(state)-\(isDark)"
         if let cached = imageCache[key] { return cached }
 
-        // `stopwatch` matches the prototype's mark — a dial with a crown on top and a
-        // hand — where `timer` is a plain clock face.
-        let symbol = state == .syncing ? "arrow.triangle.2.circlepath" : "stopwatch"
-        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
         var image: NSImage?
 
         switch state {
-        case .idle, .syncing:
-            image = NSImage(systemSymbolName: symbol, accessibilityDescription: "ChronoTask")?
-                .withSymbolConfiguration(config)
+        case .idle:
+            // The app's own mark, drawn for 18pt: a heavier ring than the app icon's,
+            // because at menu bar size a hairline dial disappears.
+            image = NSImage(named: "MenuBarStopwatch")
+            image?.accessibilityDescription = "ChronoTask"
             // Template images invert correctly on light and dark menu bars.
             image?.isTemplate = true
+        case .syncing:
+            image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath",
+                            accessibilityDescription: "ChronoTask sincronizando")?
+                .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 13, weight: .medium))
+            image?.isTemplate = true
         case .running:
-            let tint = NSImage.SymbolConfiguration(paletteColors: [Theme.NS.accent])
-            image = NSImage(systemSymbolName: symbol, accessibilityDescription: "ChronoTask grabando")?
-                .withSymbolConfiguration(config.applying(tint))
-            // A template image would discard the tint.
-            image?.isTemplate = false
+            // The running mark dims the unswept part of the dial, so the accent reads
+            // as progress rather than as a flat recolour.
+            var accent = Theme.NS.accent
+            NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+                accent = Theme.NS.accent.usingColorSpace(.sRGB) ?? accent
+            }
+            image = NSImage(named: "MenuBarStopwatchRunning")?.tinted(with: accent)
+            image?.accessibilityDescription = "ChronoTask grabando"
         }
 
         imageCache[key] = image
