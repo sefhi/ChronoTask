@@ -167,6 +167,28 @@ final class AppEnvironment: ObservableObject {
         }
     }
 
+    // MARK: - App-level actions
+
+    /// macOS's own About window. An agent app has no menu bar to reach it from, so
+    /// this is the only way in — and it has to activate first, or the panel would be
+    /// ordered above it.
+    func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(nil)
+    }
+
+    /// Uploads the running stretch before terminating instead of leaving it to be
+    /// recovered on next launch. A failed upload lands in the retry queue, which is on
+    /// disk and survives the quit — either way the time is not lost.
+    func quit() {
+        Task {
+            if timerManager.isRunning {
+                await timerManager.stopAndSync()
+            }
+            NSApp.terminate(nil)
+        }
+    }
+
     // MARK: - Pending queue
 
     private func flushPendingEntries() async {

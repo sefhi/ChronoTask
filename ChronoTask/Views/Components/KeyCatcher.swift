@@ -5,6 +5,8 @@ enum ChronoKey: Equatable {
     case escape, up, down, enter, space
     /// `/` and `⌘K` / `⌘F` — the three habits people already have for "search here".
     case slash, findShortcut
+    /// `⌘Q`. An agent app has no main menu, so nothing handles this for us.
+    case quit
     /// `⌘1`…`⌘9`: jump straight to one of the first tasks.
     case quickPick(Int)
 
@@ -23,6 +25,10 @@ enum ChronoKey: Equatable {
         guard let characters = event.charactersIgnoringModifiers?.lowercased(),
               let first = characters.first else { return nil }
 
+        if command, first == "q" {
+            self = .quit
+            return
+        }
         if command, first == "k" || first == "f" {
             self = .findShortcut
             return

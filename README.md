@@ -75,7 +75,10 @@ The whole flow without the mouse: <kbd>⌥⌘T</kbd> → type a couple of letter
 | <kbd>↓</kbd> | Expand the task list |
 | <kbd>⌘K</kbd> · <kbd>⌘F</kbd> · <kbd>/</kbd> | Jump to the task search field |
 | <kbd>⌘1</kbd>…<kbd>⌘9</kbd> | Pick that task **and start the timer** |
+| <kbd>⌘Q</kbd> | Quit — the running entry is uploaded first |
 | <kbd>Esc</kbd> | Close the panel |
+
+The **…** button in the header opens About, *Cambiar API key…* and Quit. <kbd>Esc</kbd> closes the menu before the list, and the list before the panel.
 
 ### In the task list
 
@@ -92,7 +95,7 @@ The list is cached for five minutes and reloaded when it goes stale. The refresh
 
 ### In the menu bar's context menu
 
-Right-click the icon for: open the panel, start/stop, refresh tasks (<kbd>⌘R</kbd>), change the API key, and quit (<kbd>⌘Q</kbd>).
+Right-click the icon for: open the panel, start/stop, refresh tasks (<kbd>⌘R</kbd>), change the API key, and quit (<kbd>⌘Q</kbd>). Quitting from either menu uploads the running entry before it goes.
 
 ## How It Works
 
@@ -172,8 +175,8 @@ ChronoTask/
 └── Views/
     ├── ContentRouter.swift            # Auth routing
     ├── SetupView.swift                # Token entry
-    ├── MainView.swift                 # Panel layout and keyboard handling
-    └── Components/                    # StatusPill, TimerDisplay, TaskListPanel, …
+    ├── MainView.swift                 # Panel layout, header menu, keyboard handling
+    └── Components/                    # StatusPill, TimerDisplay, TaskListPanel, PanelMenu, …
 ```
 
 ### Tech Stack

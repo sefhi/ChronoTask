@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct MainView: View {
+    @EnvironmentObject var environment: AppEnvironment
     @EnvironmentObject var appState: AppState
     /// All owned by `AppEnvironment`: the menu bar clock and the peek observe them
     /// while this view is not on screen at all.
@@ -26,8 +27,29 @@ struct MainView: View {
     }
 
     var body: some View {
+        // Three layers so a click anywhere else in the panel closes the menu: content,
+        // then a transparent catcher, then the menu itself on top. An `.overlay` on the
+        // content could not sit *between* the two.
+        ZStack(alignment: .topTrailing) {
+            content
+
+            if viewModel.isMenuOpen {
+                Color.black.opacity(0.001)
+                    .contentShape(Rectangle())
+                    .onTapGesture { viewModel.closeMenu() }
+            }
+
+            menuOverlay
+        }
+        .frame(width: Theme.panelWidth)
+        .background { KeyCatcher(handler: handleKey).frame(width: 0, height: 0) }
+        .overlay(alignment: .top) { toastOverlay }
+        .animation(Theme.menuAnimation, value: viewModel.isMenuOpen)
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
-            StatusPill(state: pillState)
+            header
 
             TimerDisplay(elapsed: timerManager.elapsed)
                 .padding(.top, 6)
@@ -68,9 +90,6 @@ struct MainView: View {
         .padding(.horizontal, Theme.panelPadH)
         .padding(.top, Theme.panelPadTop)
         .padding(.bottom, Theme.panelPadBottom)
-        .frame(width: Theme.panelWidth)
-        .background { KeyCatcher(handler: handleKey).frame(width: 0, height: 0) }
-        .overlay(alignment: .top) { toastOverlay }
         .onChange(of: viewModel.isListOpen) { isOpen in
             searchFocused = isOpen
             // The ticker is suppressed while the list is closed, so catch up here
@@ -103,6 +122,32 @@ struct MainView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openTaskListRequested)) { _ in
             viewModel.openList()
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            StatusPill(state: pillState)
+            Spacer(minLength: 8)
+            PanelMenuButton(isOpen: viewModel.isMenuOpen) {
+                viewModel.toggleMenu()
+            }
+        }
+    }
+
+    /// Floats over the content rather than taking part in the layout: the panel sizes
+    /// itself to what it contains, so a menu in the flow would grow the window as it
+    /// opened. Insets match the prototype's `top:22px; right:-6px` off the header,
+    /// which itself sits inside the panel's padding.
+    @ViewBuilder
+    private var menuOverlay: some View {
+        if viewModel.isMenuOpen {
+            PanelMenu(onSelect: handleMenu)
+                .padding(.trailing, Theme.panelPadH - 6)
+                .padding(.top, Theme.panelPadTop + 22)
+                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topTrailing)))
         }
     }
 
@@ -186,6 +231,18 @@ struct MainView: View {
         }
     }
 
+    private func handleMenu(_ action: PanelMenuAction) {
+        viewModel.closeMenu()
+        switch action {
+        case .about:
+            environment.showAbout()
+        case .changeAPIKey:
+            appState.logout()
+        case .quit:
+            environment.quit()
+        }
+    }
+
     private func handleTaskChange() {
         guard let task = taskStore.selectedTask, timerManager.isRunning else { return }
         timerManager.switchTask(to: task)
@@ -194,14 +251,32 @@ struct MainView: View {
     // MARK: - Keyboard
 
     private func handleKey(_ key: ChronoKey) -> Bool {
+        // The menu is modal in spirit: while it is up it takes the keyboard, so no
+        // shortcut fires behind an open menu.
+        if viewModel.isMenuOpen {
+            switch key {
+            case .escape:
+                viewModel.closeMenu()
+            case .quit:
+                handleMenu(.quit)
+            default:
+                break
+            }
+            return true
+        }
+
         switch key {
         case .escape:
-            // Two nested scopes: the list closes first, the panel only after.
+            // Three nested scopes now: menu, then list, then the panel itself.
             if viewModel.isListOpen {
                 viewModel.closeList()
             } else {
                 NotificationCenter.default.post(name: .panelDismissRequested, object: nil)
             }
+            return true
+
+        case .quit:
+            handleMenu(.quit)
             return true
 
         case .down:

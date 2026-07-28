@@ -9,6 +9,7 @@ import Foundation
 final class MainViewModel: ObservableObject {
 
     @Published var isListOpen = false
+    @Published var isMenuOpen = false
     @Published var query = ""
     @Published var focusedIndex: Int?
     @Published var hoveredIndex: Int?
@@ -77,6 +78,16 @@ final class MainViewModel: ObservableObject {
 
     func toggleList() {
         isListOpen ? closeList() : openList()
+    }
+
+    // MARK: - Header menu
+
+    func toggleMenu() {
+        isMenuOpen.toggle()
+    }
+
+    func closeMenu() {
+        isMenuOpen = false
     }
 
     func moveFocus(_ direction: ArrowDirection) {

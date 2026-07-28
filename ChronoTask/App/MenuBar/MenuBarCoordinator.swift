@@ -169,9 +169,13 @@ final class MenuBarCoordinator {
         menu.addItem(logout)
 
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Salir de ChronoTask",
-                                action: #selector(NSApplication.terminate(_:)),
-                                keyEquivalent: "q"))
+
+        // Deliberately not `NSApplication.terminate(_:)`: that would drop the running
+        // stretch on the floor for `restoreSession` to ask about next launch. Going
+        // through the environment uploads it first.
+        let quit = NSMenuItem(title: "Salir de ChronoTask", action: #selector(menuQuit), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
         return menu
     }
 
@@ -194,4 +198,6 @@ final class MenuBarCoordinator {
     @objc private func menuRefresh() { environment.requestRefresh() }
 
     @objc private func menuLogout() { environment.appState.logout() }
+
+    @objc private func menuQuit() { environment.quit() }
 }

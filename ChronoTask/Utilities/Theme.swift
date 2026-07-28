@@ -125,6 +125,32 @@ enum Theme {
     static let insetStroke = Color(nsColor: dynamic("insetStroke",
         light: NSColor(white: 1.0, alpha: 0.50), dark: NSColor(white: 1.0, alpha: 0.14)))
 
+    // MARK: - Panel menu (the "…" popover in the header)
+
+    /// Near-opaque on purpose, unlike the panel it sits on. A translucent menu over
+    /// translucent glass would stack two washes of desktop and stop being readable —
+    /// which is also how AppKit's own menus behave.
+    static let menuFill = Color(nsColor: dynamic("menuFill",
+        light: NSColor(hex: "F7F4F0", alpha: 0.97), dark: NSColor(hex: "262623", alpha: 0.97)))
+
+    static let menuStroke = Color(nsColor: dynamic("menuStroke",
+        light: NSColor(hex: "141411", alpha: 0.10), dark: NSColor(white: 1.0, alpha: 0.12)))
+
+    static let menuRowHover = Color(nsColor: dynamic("menuRowHover",
+        light: NSColor(hex: "141411", alpha: 0.07), dark: NSColor(white: 1.0, alpha: 0.10)))
+
+    /// Quit gets the accent on hover — enough to mark it apart from the two harmless
+    /// items above without dressing it up as a destructive red it is not.
+    static let menuRowDangerHover = Color(nsColor: dynamic("menuRowDangerHover",
+        light: NSColor(hex: "C56446", alpha: 0.16), dark: NSColor(hex: "C56446", alpha: 0.26)))
+
+    static let menuSeparator = Color(nsColor: dynamic("menuSeparator",
+        light: NSColor(hex: "141411", alpha: 0.12), dark: NSColor(white: 1.0, alpha: 0.14)))
+
+    static let menuShadow = Color(nsColor: dynamic("menuShadow",
+        light: NSColor(srgbRed: 30 / 255, green: 35 / 255, blue: 45 / 255, alpha: 0.26),
+        dark: NSColor(white: 0, alpha: 0.50)))
+
     // MARK: - List rows
 
     /// Row holding keyboard focus.
@@ -191,6 +217,8 @@ enum Theme {
     static let ctaFont      = Font.custom("IBMPlexSans-SmBld", size: 12)
     static let hintFont     = Font.custom("JetBrainsMono-Medium", size: 9)
     static let syncedFont   = Font.custom("IBMPlexSans", size: 10)
+    static let menuRowFont  = Font.custom("IBMPlexSans-Medm", size: 12)
+    static let menuKeyFont  = Font.custom("JetBrainsMono-Medium", size: 10)
     static let chipFont     = Font.custom("JetBrainsMono-Medium", size: 12)
     static let peekTimeFont = Font.custom("JetBrainsMono-Medium", size: 15)
 
@@ -238,6 +266,10 @@ enum Theme {
     static let searchIconSize:  CGFloat = 11
     static let refreshIconSize: CGFloat = 12
     static let chevronSize:    CGFloat = 10
+    static let menuWidth:      CGFloat = 196
+    static let menuIconSize:   CGFloat = 12
+    static let radiusMenu:     CGFloat = 12
+    static let radiusMenuRow:  CGFloat = 8
     static let checkSize:      CGFloat = 10
     static let glyphSize:      CGFloat = 7   // play triangle / stop square
     static let peekButtonSize: CGFloat = 24
@@ -249,6 +281,7 @@ enum Theme {
     static let hoverAnimation  = Animation.easeOut(duration: 0.12)
     static let pressAnimation  = Animation.easeOut(duration: 0.08)
     static let toastAnimation  = Animation.easeInOut(duration: 0.20)
+    static let menuAnimation   = Animation.easeOut(duration: 0.14)
     static let scrollAnimation = Animation.easeInOut(duration: 0.10)
     static let panelOffset:    CGFloat = 8
 
