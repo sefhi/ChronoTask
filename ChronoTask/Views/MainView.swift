@@ -12,6 +12,15 @@ struct MainView: View {
     @StateObject private var viewModel: MainViewModel
     @FocusState private var searchFocused: Bool
 
+    /// Drives the "Actualizado hace X min" line. Re-read from a ticker rather than
+    /// computed once, or the label would freeze at whatever it said when the panel
+    /// opened.
+    @State private var clockTick = Date()
+
+    private let syncedTicker = Timer
+        .publish(every: Theme.syncedLabelRefresh, on: .main, in: .common)
+        .autoconnect()
+
     init(taskStore: TaskStore) {
         _viewModel = StateObject(wrappedValue: MainViewModel(taskStore: taskStore))
     }
@@ -64,6 +73,14 @@ struct MainView: View {
         .overlay(alignment: .top) { toastOverlay }
         .onChange(of: viewModel.isListOpen) { isOpen in
             searchFocused = isOpen
+            // The ticker is suppressed while the list is closed, so catch up here
+            // instead of showing a minute count frozen from last time.
+            if isOpen { clockTick = Date() }
+        }
+        .onChange(of: taskStore.lastLoaded) { _ in
+            // A finished load must read "hace un momento" immediately, not on the
+            // ticker's next turn up to 20s later.
+            clockTick = Date()
         }
         .onChange(of: taskStore.selectedTask?.id) { _ in
             handleTaskChange()
@@ -71,8 +88,18 @@ struct MainView: View {
         .onChange(of: timerManager.syncError) { error in
             if let error { viewModel.showToast(error, type: .error) }
         }
+        .onReceive(syncedTicker) { date in
+            // The collapsed list stays mounted so its height can animate, so this
+            // fires whether or not anything is on screen. Redrawing only while it is
+            // visible keeps a closed panel completely idle.
+            guard viewModel.isListOpen else { return }
+            clockTick = date
+        }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidPresent)) { _ in
             viewModel.onPanelPresented()
+            // Opening after a long gap would otherwise show the stale minute count
+            // from the last time the list was open.
+            clockTick = Date()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openTaskListRequested)) { _ in
             viewModel.openList()
@@ -90,10 +117,15 @@ struct MainView: View {
             selectedTaskID: taskStore.selectedTask?.id,
             focusedIndex: viewModel.focusedIndex,
             emptyMessage: viewModel.emptyMessage,
+            syncedLabel: SyncLabel.text(lastLoaded: taskStore.lastLoaded,
+                                        now: clockTick,
+                                        isSyncing: taskStore.phase == .loading),
+            isSyncing: taskStore.phase == .loading,
             query: $viewModel.query,
             searchFocus: $searchFocused,
             onSelect: { viewModel.select($0) },
-            onHoverRow: { viewModel.hoveredIndex = $0 }
+            onHoverRow: { viewModel.hoveredIndex = $0 },
+            onRefresh: { Task { await taskStore.refresh() } }
         )
         .frame(height: viewModel.isListOpen ? Theme.listMaxHeight : 0, alignment: .top)
         .clipped()

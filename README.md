@@ -86,6 +86,8 @@ The whole flow without the mouse: <kbd>⌥⌘T</kbd> → type a couple of letter
 | <kbd>Esc</kbd> | Close the list — press again to close the panel |
 | *(type)* | Filter by name |
 
+The list is cached for five minutes and reloaded when it goes stale. The refresh button in the search field forces it sooner and spins while it works; underneath, *Actualizado hace X min* tells you how old what you are looking at is. Until the list has ever loaded that line stays empty rather than claiming a freshness the app cannot back.
+
 <kbd>Space</kbd> is left alone while you are typing in the search field, so you can search for "Deploy staging" without stopping the timer.
 
 ### In the menu bar's context menu
@@ -158,6 +160,7 @@ ChronoTask/
 │   ├── Surfaces.swift                 # Glass and inset surface modifiers
 │   ├── GlassPanel.swift               # Translucent NSPanel + visual effect view
 │   ├── StatusItemIcon.swift           # The menu bar mark, drawn in code
+│   ├── SyncLabel.swift                # "Actualizado hace X min" wording
 │   ├── GlobalHotKey.swift             # ⌥⌘T, via Carbon (no Accessibility prompt)
 │   ├── StatusItemAnchor.swift         # Panel positioning geometry
 │   ├── ContentSizingHostingController.swift  # Content-driven window height

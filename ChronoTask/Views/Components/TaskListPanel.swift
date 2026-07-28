@@ -10,10 +10,14 @@ struct TaskListPanel: View {
     let selectedTaskID: String?
     let focusedIndex: Int?
     let emptyMessage: String
+    /// Already-worded "Actualizado hace…" line; nil draws nothing. See `SyncLabel`.
+    let syncedLabel: String?
+    let isSyncing: Bool
     @Binding var query: String
     var searchFocus: FocusState<Bool>.Binding
     let onSelect: (ClickUpTask) -> Void
     let onHoverRow: (Int?) -> Void
+    let onRefresh: () -> Void
 
     @State private var hoveredIndex: Int?
 
@@ -21,6 +25,7 @@ struct TaskListPanel: View {
         VStack(spacing: 0) {
             searchField
             rows
+            syncedLine
         }
         .frame(maxWidth: .infinity)
     }
@@ -37,6 +42,8 @@ struct TaskListPanel: View {
                 .foregroundColor(Theme.ink)
                 .focused(searchFocus)
 
+            RefreshButton(isSyncing: isSyncing, action: onRefresh)
+
             Text("↑↓ ⏎")
                 .font(Theme.hintFont)
                 .foregroundColor(Theme.inkQuaternary)
@@ -51,6 +58,24 @@ struct TaskListPanel: View {
         .padding(.vertical, 8)
         .insetSurface(radius: Theme.radiusField)
         .padding(.top, 10)
+    }
+
+    @ViewBuilder
+    private var syncedLine: some View {
+        if let syncedLabel {
+            Text(syncedLabel)
+                .font(Theme.syncedFont)
+                .foregroundColor(Theme.ink)
+                .opacity(0.45)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 11)
+                .padding(.top, 6)
+                .padding(.bottom, 2)
+                // The text swaps between "Sincronizando…" and a minute count, and a
+                // width change mid-crossfade reads as a stutter.
+                .animation(nil, value: syncedLabel)
+        }
     }
 
     @ViewBuilder

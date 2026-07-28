@@ -155,6 +155,7 @@ enum Theme {
     static let emptyFont    = Font.custom("IBMPlexSans", size: 11.5)
     static let ctaFont      = Font.custom("IBMPlexSans-SmBld", size: 12)
     static let hintFont     = Font.custom("JetBrainsMono-Medium", size: 9)
+    static let syncedFont   = Font.custom("IBMPlexSans", size: 10)
     static let chipFont     = Font.custom("JetBrainsMono-Medium", size: 12)
     static let peekTimeFont = Font.custom("JetBrainsMono-Medium", size: 15)
 
@@ -179,7 +180,9 @@ enum Theme {
     static let panelPadH:      CGFloat = 18
     static let panelPadTop:    CGFloat = 18
     static let panelPadBottom: CGFloat = 16
-    static let listMaxHeight:  CGFloat = 230
+    /// 260 rather than 230 since the list gained its "Actualizado hace…" footer,
+    /// matching the prototype's `#listwrap.open{max-height:260px}`.
+    static let listMaxHeight:  CGFloat = 260
     static let listScrollMax:  CGFloat = 150
     static let controlHeight:  CGFloat = 36
     static let chipWidth:      CGFloat = 92
@@ -197,7 +200,8 @@ enum Theme {
     static let dotSize:        CGFloat = 5
     static let haloRing:       CGFloat = 3   // halo diameter = dotSize + haloRing * 2
     static let rowIconWidth:   CGFloat = 14
-    static let searchIconSize: CGFloat = 11
+    static let searchIconSize:  CGFloat = 11
+    static let refreshIconSize: CGFloat = 12
     static let chevronSize:    CGFloat = 10
     static let checkSize:      CGFloat = 10
     static let glyphSize:      CGFloat = 7   // play triangle / stop square
@@ -212,5 +216,13 @@ enum Theme {
     static let toastAnimation  = Animation.easeInOut(duration: 0.20)
     static let scrollAnimation = Animation.easeInOut(duration: 0.10)
     static let panelOffset:    CGFloat = 8
+
+    /// One turn of the refresh glyph while a load is in flight (`sp .7s linear`).
+    static let spinAnimation = Animation.linear(duration: 0.7).repeatForever(autoreverses: false)
+
+    /// How often the "Actualizado hace…" line re-reads the clock. The prototype uses
+    /// 20s: often enough that the minute count is never visibly wrong, rare enough to
+    /// cost nothing.
+    static let syncedLabelRefresh: TimeInterval = 20
 
 }
