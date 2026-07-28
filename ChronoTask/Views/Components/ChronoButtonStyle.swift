@@ -1,9 +1,12 @@
 import SwiftUI
 
 enum ChronoButtonKind {
-    /// Filled terracotta — the primary start/stop action.
+    /// Filled terracotta — starting the timer, the panel's one primary action.
     case accent
-    /// Recessed surface — task caption, daily chip, workspace rows.
+    /// Tinted and outlined terracotta — stopping. Reads as actionable without
+    /// competing with `accent` for the eye.
+    case stop
+    /// Recessed surface — task caption, workspace rows.
     case inset
     /// No chrome until hovered — list rows and icon buttons.
     case ghost
@@ -49,6 +52,14 @@ struct ChronoButtonStyle: ButtonStyle {
             switch kind {
             case .accent:
                 shape.fill(Theme.accentFill).opacity(hovering ? 1 : 0.92)
+            case .stop:
+                // The resting wash matches the prototype exactly, so hover deepens it
+                // by laying a second one over the first rather than by raising an
+                // opacity that is already at full.
+                ZStack {
+                    shape.fill(Theme.stopFill)
+                    if hovering { shape.fill(Theme.stopFill) }
+                }
             case .inset:
                 shape.fill(hovering ? Theme.insetFillHover : Theme.insetFill)
             case .ghost:
@@ -58,8 +69,26 @@ struct ChronoButtonStyle: ButtonStyle {
 
         @ViewBuilder
         private func border(_ shape: RoundedRectangle) -> some View {
-            if kind == .inset {
+            switch kind {
+            case .inset:
                 shape.strokeBorder(Theme.insetStroke, lineWidth: Theme.strokeHairline)
+            case .stop:
+                shape.strokeBorder(Theme.stopStroke, lineWidth: Theme.strokeStop)
+                // `inset 0 1px 0` — the same top-edge catch the glass surfaces get,
+                // which is what stops the tint reading as a flat swatch.
+                shape.strokeBorder(
+                    LinearGradient(
+                        stops: [
+                            .init(color: Theme.stopHighlight, location: 0),
+                            .init(color: Theme.stopHighlight.opacity(0), location: 0.35)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: Theme.strokeHighlight
+                )
+            case .accent, .ghost:
+                EmptyView()
             }
         }
     }
@@ -68,6 +97,10 @@ struct ChronoButtonStyle: ButtonStyle {
 extension ButtonStyle where Self == ChronoButtonStyle {
     static var chronoAccent: Self {
         ChronoButtonStyle(kind: .accent, radius: Theme.radiusControl)
+    }
+
+    static var chronoStop: Self {
+        ChronoButtonStyle(kind: .stop, radius: Theme.radiusControl)
     }
 
     static func chronoInset(radius: CGFloat = Theme.radiusSurface) -> Self {

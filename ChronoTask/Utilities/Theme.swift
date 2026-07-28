@@ -61,6 +61,38 @@ enum Theme {
     static let accentHalo = Color(nsColor: dynamic("accentHalo",
         light: NSColor(hex: "C56446", alpha: 0.14), dark: NSColor(hex: "E08A66", alpha: 0.22)))
 
+    // MARK: - Stop treatment
+
+    /// "Detener" is tinted and outlined rather than filled. It stays unmistakably
+    /// actionable without carrying the weight of the primary action: starting is the
+    /// decision, stopping merely ends what is already running.
+    ///
+    /// These stay on the base `#C56446` in both appearances rather than following
+    /// `accent`, which lightens in the dark. As a *fill* the darker terracotta is what
+    /// keeps the pale label above it readable.
+    static let stopFill = Color(nsColor: dynamic("stopFill",
+        light: NSColor(hex: "C56446", alpha: 0.14), dark: NSColor(hex: "C56446", alpha: 0.24)))
+
+    static let stopStroke = Color(nsColor: dynamic("stopStroke",
+        light: NSColor(hex: "C56446", alpha: 0.55), dark: NSColor(hex: "D67C5F", alpha: 0.62)))
+
+    /// Deep terracotta, not the accent itself: the label sits on a pale wash of that
+    /// very accent, so `#C56446` on `#C56446 @14%` would barely separate.
+    static let stopLabel = Color(nsColor: dynamic("stopLabel",
+        light: NSColor(hex: "9C4A31"), dark: NSColor(hex: "F0C3B2")))
+
+    /// `inset 0 1px 0` along the top edge, as on the glass surfaces.
+    static let stopHighlight = Color(nsColor: dynamic("stopHighlight",
+        light: NSColor(white: 1.0, alpha: 0.40), dark: NSColor(white: 1.0, alpha: 0.12)))
+
+    /// The peek's circular button wears the same treatment a shade stronger — it has
+    /// no label beside it to carry the meaning.
+    static let peekStopFill = Color(nsColor: dynamic("peekStopFill",
+        light: NSColor(hex: "C56446", alpha: 0.18), dark: NSColor(hex: "C56446", alpha: 0.30)))
+
+    static let peekStopStroke = Color(nsColor: dynamic("peekStopStroke",
+        light: NSColor(hex: "C56446", alpha: 0.60), dark: NSColor(hex: "D67C5F", alpha: 0.65)))
+
     // MARK: - Glass surface (panel + peek)
 
     /// Tint laid over the window's blur. Carries no blur of its own.
@@ -135,6 +167,9 @@ enum Theme {
 
     static let strokeHairline:  CGFloat = 0.5   // one physical pixel on Retina
     static let strokeHighlight: CGFloat = 1
+    /// The stop button's outline. Heavier than the hairline on purpose: with only a
+    /// 14% wash behind it, the edge is what makes the shape read as a control.
+    static let strokeStop:      CGFloat = 1
 
     // MARK: - Shadows
 
