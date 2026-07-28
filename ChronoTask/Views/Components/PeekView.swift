@@ -9,10 +9,11 @@ struct PeekView: View {
 
     var body: some View {
         HStack(spacing: Theme.peekGap) {
-            Circle()
-                .fill(Theme.accent)
-                .frame(width: Theme.dotSize, height: Theme.dotSize)
-                .opacity(isRunning ? 1 : 0.25)
+            // The mark, as in the design — not a bare dot. At 15pt the swept dial is
+            // still legible, and it says *which* app this floating capsule belongs to.
+            ChronoMarkView(isRunning: isRunning,
+                           size: 15,
+                           color: isRunning ? Theme.accent : Theme.markHeader)
 
             Text(elapsed.timerFormatted)
                 .font(Theme.peekTimeFont)

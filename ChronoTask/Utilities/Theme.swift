@@ -45,6 +45,11 @@ enum Theme {
     static let inkQuaternary = Color(nsColor: dynamic("inkQuaternary",
         light: NSColor(hex: "141411", alpha: 0.40), dark: NSColor(hex: "FAF8F3", alpha: 0.40)))
 
+    /// The stopwatch mark in the panel header and the peek, while stopped. Darker
+    /// than the surrounding iconography: it is the app's mark, not a control.
+    static let markHeader = Color(nsColor: dynamic("markHeader",
+        light: NSColor(hex: "141411", alpha: 0.75), dark: NSColor(hex: "FAF8F3", alpha: 0.80)))
+
     /// Text and glyphs on top of an accent fill. Never inverts.
     static let onAccent = Color(nsColor: NSColor(hex: "FAF8F3"))
 

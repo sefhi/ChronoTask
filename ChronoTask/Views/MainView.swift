@@ -129,6 +129,9 @@ struct MainView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
+            ChronoMarkView(isRunning: timerManager.isRunning,
+                           size: 18,
+                           color: timerManager.isRunning ? Theme.accent : Theme.markHeader)
             StatusPill(state: pillState)
             Spacer(minLength: 8)
             PanelMenuButton(isOpen: viewModel.isMenuOpen) {
