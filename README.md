@@ -3,20 +3,21 @@
 A macOS menu bar app for tracking time straight into [ClickUp](https://clickup.com) tasks, built to be driven entirely from the keyboard.
 
 <p align="center">
-  <img src="docs/images/panel.png" width="330" alt="ChronoTask panel showing the timer, today's total and the selected task" />
-  <img src="docs/images/task-list.png" width="330" alt="Task list expanded with search and keyboard shortcuts" />
+  <img src="docs/images/panel.png" width="330" alt="ChronoTask panel timing three tasks in parallel, one in focus and two listed below it" />
+  <img src="docs/images/task-list.png" width="330" alt="Task list open to start another task in parallel, with search and keyboard shortcuts" />
 </p>
 
 ## What It Does
 
-Click the stopwatch in the menu bar — or hit <kbd>⌥⌘T</kbd> from anywhere — and a translucent panel drops down under it. Pick a task, start the timer, and when you stop it the time entry lands in ClickUp with the exact duration.
+Click the stopwatch in the menu bar — or hit <kbd>⌥⌘T</kbd> from anywhere — and a translucent panel drops down under it. Pick a task and its timer starts; when you stop it the time entry lands in ClickUp with the exact duration.
 
 <p align="center">
-  <img src="docs/images/menu-bar.png" width="560" alt="The stopwatch icon in the macOS menu bar" />
+  <img src="docs/images/menu-bar.png" width="560" alt="The stopwatch in the macOS menu bar, showing the focused task's time and +2 more running" />
 </p>
 
-- **Lives in the menu bar.** No window in your way. While tracking, the elapsed time shows next to the icon.
-- **Hover peek.** Point at the icon and a small panel appears with the timer and a stop button — no need to open anything.
+- **Lives in the menu bar.** No window in your way. While tracking, the elapsed time shows next to the icon — plus `+2` when two more tasks run beside it.
+- **Several tasks at once.** Add a task in parallel and each keeps its own clock. One is in focus, shown large; the rest are listed below it — click one to focus it, or stop just that one. The ■ beside the task in focus stops just that one (<kbd>⌫</kbd>); *Solo esta* stops all the others, *Detener N* stops everything (<kbd>Space</kbd>).
+- **Hover peek.** Point at the icon and a small panel lists every running task with its time, and their sum — no need to open anything.
 - **Keyboard first.** Open, search, pick and start without touching the mouse. See [Keyboard](#keyboard).
 - **Today's total, from ClickUp.** `Hoy · 2h 10m registrados` is read from the API, so it also counts time logged from the web or your phone.
 - **Follows your appearance.** Light and dark, automatically.
@@ -59,7 +60,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 ## Keyboard
 
-The whole flow without the mouse: <kbd>⌥⌘T</kbd> → type a couple of letters → <kbd>⏎</kbd> → <kbd>Space</kbd>. Or shorter still, <kbd>⌥⌘T</kbd> → <kbd>⌘2</kbd>.
+The whole flow without the mouse: <kbd>⌥⌘T</kbd> → type a couple of letters → <kbd>⏎</kbd>. Or shorter still, <kbd>⌥⌘T</kbd> → <kbd>⌘2</kbd>. Doing it again while something runs adds the new task in parallel.
 
 ### Anywhere
 
@@ -71,11 +72,13 @@ The whole flow without the mouse: <kbd>⌥⌘T</kbd> → type a couple of letter
 
 | Key | Action |
 |---|---|
-| <kbd>Space</kbd> | Start / stop the timer |
+| <kbd>Space</kbd> | Stop every running task — or, with none running, open the list |
+| <kbd>⌫</kbd> | Stop only the task in focus — the others keep running |
+| <kbd>⇥</kbd> · <kbd>⇧⇥</kbd> | Bring the next / previous running task into focus |
 | <kbd>↓</kbd> | Expand the task list |
 | <kbd>⌘K</kbd> · <kbd>⌘F</kbd> · <kbd>/</kbd> | Jump to the task search field |
-| <kbd>⌘1</kbd>…<kbd>⌘9</kbd> | Pick that task **and start the timer** |
-| <kbd>⌘Q</kbd> | Quit — the running entry is uploaded first |
+| <kbd>⌘1</kbd>…<kbd>⌘9</kbd> | Start that task, beside anything already running |
+| <kbd>⌘Q</kbd> | Quit — every running entry is uploaded first |
 | <kbd>Esc</kbd> | Close the panel |
 
 The **…** button in the header opens About, *Cambiar API key…* and Quit. <kbd>Esc</kbd> closes the menu before the list, and the list before the panel.
@@ -85,27 +88,27 @@ The **…** button in the header opens About, *Cambiar API key…* and Quit. <kb
 | Key | Action |
 |---|---|
 | <kbd>↑</kbd> <kbd>↓</kbd> | Move through the tasks, scrolling as needed |
-| <kbd>⏎</kbd> | Select the focused task |
+| <kbd>⏎</kbd> | Start the focused task |
 | <kbd>Esc</kbd> | Close the list — press again to close the panel |
 | *(type)* | Filter by name |
 
 The list is cached for five minutes and reloaded when it goes stale. The refresh button in the search field forces it sooner and spins while it works; underneath, *Actualizado hace X min* tells you how old what you are looking at is. Until the list has ever loaded that line stays empty rather than claiming a freshness the app cannot back.
 
-<kbd>Space</kbd> is left alone while you are typing in the search field, so you can search for "Deploy staging" without stopping the timer.
+Tasks already running are left out of the list — they are a click away above it. <kbd>Space</kbd> is left alone while you are typing in the search field, so you can search for "Deploy staging" without stopping anything.
 
 ### In the menu bar's context menu
 
-Right-click the icon for: open the panel, start/stop, refresh tasks (<kbd>⌘R</kbd>), change the API key, and quit (<kbd>⌘Q</kbd>). Quitting from either menu uploads the running entry before it goes.
+Right-click the icon for: open the panel, stop the task in focus or everything (or restart the last task), refresh tasks (<kbd>⌘R</kbd>), change the API key, and quit (<kbd>⌘Q</kbd>). Quitting from either menu uploads every running entry before it goes.
 
 ## How It Works
 
 Some behaviour worth knowing about, because it is deliberate:
 
-- **Today's total is whatever ClickUp says**, plus the session currently running. It is not a local tally, so a failed sync never inflates it. If the figure has never loaded, a dash is shown rather than `0m` — that would be a claim the app cannot back.
+- **Today's total is whatever ClickUp says**, plus every session currently running. It is not a local tally, so a failed sync never inflates it. If the figure has never loaded, a dash is shown rather than `0m` — that would be a claim the app cannot back.
 - **A session that crosses midnight counts towards the day it started**, matching how ClickUp files it. So the total does not drop when the entry is finally posted.
-- **If the app quits while timing**, the session is recovered on next launch. Reopened within a couple of minutes it just resumes; after longer it asks, and only ever offers the stretch up to the last heartbeat — never the gap where your Mac may have been asleep.
+- **If the app quits while timing**, every running session is recovered on next launch. Reopened within a couple of minutes it just resumes; after longer it asks, and only ever offers the stretch up to the last heartbeat — never the gap where your Mac may have been asleep.
 - **If an upload fails**, the entry is written to disk and retried on launch, after each successful sync, and every minute while anything is pending. The time is not lost.
-- **Switching task while the timer runs** stops it, waits for the entry to actually reach ClickUp, and then starts the new one.
+- **Parallel tasks are separate entries.** Each one posts its own time entry when it stops, so overlapping stretches are logged in ClickUp exactly as they ran. Stopping never blocks: the task leaves the panel at once and its entry uploads in the background.
 
 ## Development
 
