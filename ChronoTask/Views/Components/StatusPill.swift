@@ -1,12 +1,15 @@
 import SwiftUI
 
-enum PillState {
-    /// No task chosen yet.
-    case noTask
-    /// A task is selected and the timer is stopped.
+enum PillState: Equatable {
+    /// Nothing running.
     case ready
-    /// Timing.
-    case recording
+    /// Timing `count` tasks at once.
+    case recording(count: Int)
+
+    var isRecording: Bool {
+        if case .recording = self { return true }
+        return false
+    }
 }
 
 struct StatusPill: View {
@@ -16,7 +19,7 @@ struct StatusPill: View {
         HStack(spacing: 6) {
             // The dot only exists while recording — in the other states the label
             // carries the meaning on its own.
-            if state == .recording {
+            if state.isRecording {
                 Circle()
                     .fill(Theme.accent)
                     .frame(width: Theme.dotSize, height: Theme.dotSize)
@@ -33,16 +36,17 @@ struct StatusPill: View {
             Text(label)
                 .font(Theme.labelFont)
                 .tracking(Theme.trackingLabel)
-                .foregroundColor(state == .recording ? Theme.accent : Theme.inkSecondary)
+                .foregroundColor(state.isRecording ? Theme.accent : Theme.inkSecondary)
         }
         .animation(Theme.panelAnimation, value: state)
     }
 
     private var label: String {
         switch state {
-        case .noTask:    return "SIN TAREA"
-        case .ready:     return "READY"
-        case .recording: return "REC"
+        case .ready:
+            return "READY"
+        case .recording(let count):
+            return count > 1 ? "REC · \(count) EN PARALELO" : "REC"
         }
     }
 }

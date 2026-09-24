@@ -9,6 +9,10 @@ enum ChronoKey: Equatable {
     case quit
     /// `⌘1`…`⌘9`: jump straight to one of the first tasks.
     case quickPick(Int)
+    /// `⌫` (and forward delete): stop only the task in focus.
+    case delete
+    /// `⇥` / `⇧⇥`: move the focus through the tasks running in parallel.
+    case tab(backwards: Bool)
 
     init?(event: NSEvent) {
         let command = event.modifierFlags.contains(.command)
@@ -19,6 +23,10 @@ enum ChronoKey: Equatable {
         case 125: self = .down; return
         case 36, 76: self = .enter; return   // Return and the numeric Enter
         case 49:  self = .space; return
+        case 51, 117: self = .delete; return   // Backspace and forward delete
+        case 48:
+            self = .tab(backwards: event.modifierFlags.contains(.shift))
+            return
         default: break
         }
 
@@ -98,7 +106,15 @@ final class KeyCatcherView: NSView {
             // `isEditing` also demands that the field editor is actually accepting
             // input: an empty, hidden field editor can linger as first responder after
             // the list collapses, and that would silently disable the shortcut.
-            if key == .space, self.isEditing(in: host) { return event }
+            //
+            // ⌫ likewise belongs to the text being typed, and ⇥ to AppKit's own focus
+            // chain, whenever a field is being edited.
+            if self.isEditing(in: host) {
+                switch key {
+                case .space, .delete, .tab: return event
+                default: break
+                }
+            }
 
             return (self.handler?(key) ?? false) ? nil : event
         }

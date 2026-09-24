@@ -7,7 +7,8 @@ import SwiftUI
 /// by the parent so the window can grow with it.
 struct TaskListPanel: View {
     let tasks: [ClickUpTask]
-    let selectedTaskID: String?
+    /// "INICIAR", or "+ INICIAR" when the pick joins tasks already running.
+    let goLabel: String
     let focusedIndex: Int?
     let emptyMessage: String
     /// Already-worded "Actualizado hace…" line; nil draws nothing. See `SyncLabel`.
@@ -36,7 +37,7 @@ struct TaskListPanel: View {
                 .font(.system(size: Theme.searchIconSize, weight: .medium))
                 .foregroundColor(Theme.inkQuaternary)
 
-            TextField("Buscar tareas…", text: $query)
+            TextField("Buscar tarea para iniciar…", text: $query)
                 .textFieldStyle(.plain)
                 .font(Theme.searchFont)
                 .foregroundColor(Theme.ink)
@@ -112,12 +113,12 @@ struct TaskListPanel: View {
     }
 
     private func row(_ task: ClickUpTask, index: Int) -> some View {
-        let isSelected = task.id == selectedTaskID
         let isFocused = index == focusedIndex
+        let isActive = isFocused || hoveredIndex == index
 
         return Button { onSelect(task) } label: {
             HStack(spacing: 8) {
-                icon(for: task)
+                TaskIcon(task: task)
 
                 Text(task.strippedName)
                     .font(Theme.rowFont)
@@ -127,18 +128,20 @@ struct TaskListPanel: View {
 
                 Spacer(minLength: 8)
 
-                // ⌘1…⌘9 on the first nine rows: pick and start in one keystroke.
-                if index < 9 {
+                // Picking a row starts it, so the row says so where the pointer or
+                // the keyboard is. Elsewhere, ⌘1…⌘9 on the first nine rows: the same
+                // thing in one keystroke.
+                if isActive {
+                    Text(goLabel)
+                        .font(Theme.goFont)
+                        .tracking(0.3)
+                        .foregroundColor(Theme.accent)
+                } else if index < 9 {
                     Text("⌘\(index + 1)")
                         .font(Theme.hintFont)
                         .foregroundColor(Theme.inkQuaternary)
-                        .opacity(isFocused ? 1 : 0.5)
+                        .opacity(0.5)
                 }
-
-                Image(systemName: "checkmark")
-                    .font(.system(size: Theme.checkSize, weight: .semibold))
-                    .foregroundColor(Theme.accent)
-                    .opacity(isSelected ? 1 : 0)
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 7)
@@ -161,19 +164,5 @@ struct TaskListPanel: View {
         if isFocused { return Theme.rowFocused }
         if isHovered { return Theme.rowHover }
         return .clear
-    }
-
-    @ViewBuilder
-    private func icon(for task: ClickUpTask) -> some View {
-        if let emoji = task.leadingEmoji {
-            Text(emoji)
-                .font(.system(size: 11))
-                .frame(width: Theme.rowIconWidth)
-        } else {
-            Circle()
-                .fill(task.statusTint)
-                .frame(width: Theme.dotSize, height: Theme.dotSize)
-                .frame(width: Theme.rowIconWidth)
-        }
     }
 }

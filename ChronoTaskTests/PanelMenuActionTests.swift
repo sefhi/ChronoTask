@@ -28,10 +28,14 @@ final class PanelMenuActionTests: XCTestCase {
 /// `ChronoKey` is what decides whether a keystroke reaches the panel at all.
 final class ChronoKeyTests: XCTestCase {
 
-    private func key(_ chars: String, keyCode: UInt16 = 0, command: Bool = false) -> ChronoKey? {
+    private func key(_ chars: String, keyCode: UInt16 = 0, command: Bool = false,
+                     shift: Bool = false) -> ChronoKey? {
+        var flags: NSEvent.ModifierFlags = []
+        if command { flags.insert(.command) }
+        if shift { flags.insert(.shift) }
         guard let event = NSEvent.keyEvent(
             with: .keyDown, location: .zero,
-            modifierFlags: command ? .command : [],
+            modifierFlags: flags,
             timestamp: 0, windowNumber: 0, context: nil,
             characters: chars, charactersIgnoringModifiers: chars,
             isARepeat: false, keyCode: keyCode
@@ -61,5 +65,15 @@ final class ChronoKeyTests: XCTestCase {
 
     func testEscapeIsRecognisedByKeyCode() {
         XCTAssertEqual(key("", keyCode: 53), .escape)
+    }
+
+    func testBothDeleteKeysStopTheFocusedTask() {
+        XCTAssertEqual(key("\u{7F}", keyCode: 51), .delete)
+        XCTAssertEqual(key("\u{F728}", keyCode: 117), .delete)
+    }
+
+    func testTabDirectionFollowsShift() {
+        XCTAssertEqual(key("\t", keyCode: 48), .tab(backwards: false))
+        XCTAssertEqual(key("\u{19}", keyCode: 48, shift: true), .tab(backwards: true))
     }
 }

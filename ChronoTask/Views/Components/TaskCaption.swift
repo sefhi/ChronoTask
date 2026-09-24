@@ -1,9 +1,7 @@
 import SwiftUI
 
-/// The clickable strip showing the selected task, which also toggles the list.
+/// "Elige una tarea": with nothing running, the strip that opens the list.
 struct TaskCaption: View {
-    let task: ClickUpTask?
-    let isRunning: Bool
     let isExpanded: Bool
     let action: () -> Void
 
@@ -11,14 +9,14 @@ struct TaskCaption: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Circle()
-                    .fill(isRunning ? Theme.accent : Theme.inkQuaternary)
-                    .frame(width: Theme.dotSize, height: Theme.dotSize)
+                    .fill(Theme.inkQuaternary)
+                    .frame(width: Theme.taskDotSize, height: Theme.taskDotSize)
+                    .frame(width: Theme.rowIconWidth)
 
-                Text(task?.name ?? "Elige una tarea")
+                Text("Elige una tarea")
                     .font(Theme.captionFont)
-                    .foregroundColor(task == nil ? Theme.inkTertiary : Theme.ink)
+                    .foregroundColor(Theme.inkTertiary)
                     .lineLimit(1)
-                    .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 // A shortcut nobody can see is a shortcut nobody uses.
@@ -28,10 +26,7 @@ struct TaskCaption: View {
                         .foregroundColor(Theme.inkQuaternary)
                 }
 
-                Image(systemName: "chevron.down")
-                    .font(.system(size: Theme.chevronSize, weight: .medium))
-                    .foregroundColor(Theme.inkQuaternary)
-                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                Chevron(isExpanded: isExpanded)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
@@ -39,8 +34,19 @@ struct TaskCaption: View {
         }
         .buttonStyle(.chronoInset(radius: Theme.radiusSurface))
         .animation(Theme.listAnimation, value: isExpanded)
-        .accessibilityLabel("Tarea seleccionada")
-        .accessibilityValue(task?.name ?? "ninguna")
+        .accessibilityLabel("Elige una tarea")
         .accessibilityHint(isExpanded ? "Cierra la lista de tareas" : "Abre la lista de tareas")
+    }
+}
+
+/// The disclosure chevron shared by every row that opens the task list.
+struct Chevron: View {
+    let isExpanded: Bool
+
+    var body: some View {
+        Image(systemName: "chevron.down")
+            .font(.system(size: Theme.chevronSize, weight: .medium))
+            .foregroundColor(Theme.inkQuaternary)
+            .rotationEffect(.degrees(isExpanded ? 180 : 0))
     }
 }

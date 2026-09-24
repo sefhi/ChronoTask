@@ -106,10 +106,25 @@ final class DailyTotalServiceTests: XCTestCase {
         ]
         await service.refresh(force: true)
 
-        let total = service.displayTotal(runningSince: TestSupport.date("2026-07-27T11:00:00Z"),
-                                         elapsed: 300)
+        let start = TestSupport.date("2026-07-27T11:00:00Z")
+        let total = service.displayTotal(runs: [run(startedAt: start)],
+                                         at: start.addingTimeInterval(300))
 
         XCTAssertEqual(total ?? 0, 900, accuracy: 0.001)
+    }
+
+    func testDisplayTotalAddsEveryParallelRun() async {
+        api.timeEntries = [
+            TestSupport.makeEntry(start: TestSupport.date("2026-07-27T09:00:00Z"), durationSeconds: 600)
+        ]
+        await service.refresh(force: true)
+
+        let now = TestSupport.date("2026-07-27T11:10:00Z")
+        let total = service.displayTotal(runs: [run(id: "a", startedAt: now.addingTimeInterval(-300)),
+                                                run(id: "b", startedAt: now.addingTimeInterval(-120))],
+                                         at: now)
+
+        XCTAssertEqual(total ?? 0, 600 + 300 + 120, accuracy: 0.001)
     }
 
     func testDisplayTotalIgnoresASessionStartedYesterday() async {
@@ -118,14 +133,19 @@ final class DailyTotalServiceTests: XCTestCase {
         ]
         await service.refresh(force: true)
 
-        let total = service.displayTotal(runningSince: TestSupport.date("2026-07-26T23:50:00Z"),
-                                         elapsed: 3000)
+        let start = TestSupport.date("2026-07-26T23:50:00Z")
+        let total = service.displayTotal(runs: [run(startedAt: start)],
+                                         at: start.addingTimeInterval(3000))
 
         XCTAssertEqual(total ?? 0, 600, accuracy: 0.001)
     }
 
     func testDisplayTotalIsUnknownBeforeTheFirstLoad() {
-        XCTAssertNil(service.displayTotal(runningSince: nil, elapsed: 0))
+        XCTAssertNil(service.displayTotal(runs: [], at: Date()))
+    }
+
+    private func run(id: String = "t1", startedAt: Date) -> RunningTimer {
+        RunningTimer(task: TestSupport.makeTask(id: id), startedAt: startedAt)
     }
 
     // MARK: - Midnight

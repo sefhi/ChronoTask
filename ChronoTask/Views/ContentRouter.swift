@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentRouter: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var taskStore: TaskStore
+    @EnvironmentObject private var timerManager: TimerManager
 
     var body: some View {
         Group {
@@ -12,7 +13,7 @@ struct ContentRouter: View {
             case .needsAuth, .needsWorkspace:
                 SetupView()
             case .authenticated:
-                MainView(taskStore: taskStore)
+                MainView(taskStore: taskStore, timerManager: timerManager)
             }
         }
         // Width is fixed, height follows the content so the panel can size itself.

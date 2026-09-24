@@ -90,14 +90,6 @@ enum Theme {
     static let stopHighlight = Color(nsColor: dynamic("stopHighlight",
         light: NSColor(white: 1.0, alpha: 0.40), dark: NSColor(white: 1.0, alpha: 0.12)))
 
-    /// The peek's circular button wears the same treatment a shade stronger — it has
-    /// no label beside it to carry the meaning.
-    static let peekStopFill = Color(nsColor: dynamic("peekStopFill",
-        light: NSColor(hex: "C56446", alpha: 0.18), dark: NSColor(hex: "C56446", alpha: 0.30)))
-
-    static let peekStopStroke = Color(nsColor: dynamic("peekStopStroke",
-        light: NSColor(hex: "C56446", alpha: 0.60), dark: NSColor(hex: "D67C5F", alpha: 0.65)))
-
     // MARK: - Glass surface (panel + peek)
 
     /// Tint laid over the window's blur. Carries no blur of its own.
@@ -166,6 +158,10 @@ enum Theme {
     static let rowHover = Color(nsColor: dynamic("rowHover",
         light: NSColor(white: 1.0, alpha: 0.32), dark: NSColor(white: 1.0, alpha: 0.08)))
 
+    /// A task in the "en paralelo" list under the pointer (`.sat:hover`).
+    static let parallelRowHover = Color(nsColor: dynamic("parallelRowHover",
+        light: NSColor(white: 1.0, alpha: 0.45), dark: NSColor(white: 1.0, alpha: 0.10)))
+
     /// Separators over glass are made of *light*, never ink: ink at 10% simply
     /// vanishes against a translucent backdrop.
     static let separator = Color(nsColor: dynamic("separator",
@@ -227,6 +223,20 @@ enum Theme {
     static let chipFont     = Font.custom("JetBrainsMono-Medium", size: 12)
     static let peekTimeFont = Font.custom("JetBrainsMono-Medium", size: 15)
 
+    // Multitasking
+    /// The focused task's clock, a step down from `timerFont` to make room for the
+    /// task name above it and the parallel list below.
+    static let timerFontCompact = Font.custom("JetBrainsMono-Medium", size: 34)
+    static let focusNameFont    = Font.custom("IBMPlexSans-SmBld", size: 13)
+    static let subtitleFigure   = Font.custom("JetBrainsMono-SemiBold", size: 11)
+    static let captionHintFont  = Font.custom("IBMPlexSans-Medm", size: 9)
+    static let parallelRowFont  = Font.custom("IBMPlexSans", size: 11.5)
+    static let parallelTimeFont = Font.custom("JetBrainsMono-Medium", size: 11.5)
+    static let goFont           = Font.custom("IBMPlexSans-SmBld", size: 10)
+    static let peekRowFont      = Font.custom("IBMPlexSans", size: 11.5)
+    static let peekRowTimeFont  = Font.custom("JetBrainsMono-Medium", size: 11.5)
+    static let peekTotalFont    = Font.custom("JetBrainsMono-Medium", size: 13)
+
     // Setup
     static let setupTitleFont = Font.custom("IBMPlexSans-SmBld", size: 18)
     static let bodyFont       = Font.custom("IBMPlexSans-Medm", size: 13)
@@ -241,6 +251,7 @@ enum Theme {
     static let trackingEsc:   CGFloat = 0.8
     static let trackingCta:   CGFloat = 2.5
     static let trackingTimer: CGFloat = -0.5
+    static let trackingCaption: CGFloat = 1.6
 
     // MARK: - Layout
 
@@ -255,8 +266,7 @@ enum Theme {
     static let controlHeight:  CGFloat = 36
     static let chipWidth:      CGFloat = 92
     static let controlGap:     CGFloat = 10
-    static let peekGap:        CGFloat = 10
-    static let peekInsets = EdgeInsets(top: 7, leading: 14, bottom: 7, trailing: 8)
+    static let peekWidth:      CGFloat = 250
 
     /// Gap between the status item and the panel/peek below it.
     static let anchorGap:        CGFloat = 6
@@ -275,9 +285,12 @@ enum Theme {
     static let menuIconSize:   CGFloat = 12
     static let radiusMenu:     CGFloat = 12
     static let radiusMenuRow:  CGFloat = 8
-    static let checkSize:      CGFloat = 10
     static let glyphSize:      CGFloat = 7   // play triangle / stop square
-    static let peekButtonSize: CGFloat = 24
+    /// Task dots in lists — a touch larger than the status dots, as in `.ico i`.
+    static let taskDotSize:    CGFloat = 6
+    /// Round stop buttons: inside a parallel row, and beside the focused task.
+    static let rowStopSize:    CGFloat = 18
+    static let focusStopSize:  CGFloat = 22
 
     // MARK: - Animation
 
@@ -288,6 +301,8 @@ enum Theme {
     static let toastAnimation  = Animation.easeInOut(duration: 0.20)
     static let menuAnimation   = Animation.easeOut(duration: 0.14)
     static let scrollAnimation = Animation.easeInOut(duration: 0.10)
+    /// Half of the prototype's 1.8s `pl` cycle, auto-reversed.
+    static let livePulseAnimation = Animation.easeInOut(duration: 0.9).repeatForever(autoreverses: true)
     static let panelOffset:    CGFloat = 8
 
     /// One turn of the refresh glyph while a load is in flight (`sp .7s linear`).

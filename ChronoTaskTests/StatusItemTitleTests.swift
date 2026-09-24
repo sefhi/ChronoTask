@@ -32,4 +32,9 @@ final class StatusItemTitleTests: XCTestCase {
         let lengths = [0, 59, 600, 3599].map { StatusItemController.menuBarTime(TimeInterval($0)).count }
         XCTAssertEqual(Set(lengths).count, 1)
     }
+
+    func testParallelSuffixCountsOnlyTheExtraRuns() {
+        XCTAssertEqual(StatusItemController.parallelSuffix(0), "")
+        XCTAssertEqual(StatusItemController.parallelSuffix(2), "+2")
+    }
 }

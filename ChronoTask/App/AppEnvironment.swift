@@ -183,7 +183,7 @@ final class AppEnvironment: ObservableObject {
     func quit() {
         Task {
             if timerManager.isRunning {
-                await timerManager.stopAndSync()
+                await timerManager.stopAll()
             }
             NSApp.terminate(nil)
         }

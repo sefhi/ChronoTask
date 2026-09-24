@@ -11,10 +11,18 @@ struct PersistedSession: Codable, Equatable {
     var savedAt: Date
 }
 
+/// Every timer running in parallel is persisted together, under one key, so a
+/// heartbeat is a single write and the sessions can never disagree about it.
 protocol SessionPersisting: AnyObject {
-    func save(_ session: PersistedSession)
-    func load() -> PersistedSession?
+    func saveAll(_ sessions: [PersistedSession])
+    func loadAll() -> [PersistedSession]
     func clear()
+}
+
+extension SessionPersisting {
+    /// Single-session conveniences, from before timers could run in parallel.
+    func save(_ session: PersistedSession) { saveAll([session]) }
+    func load() -> PersistedSession? { loadAll().first }
 }
 
 final class SessionStore: SessionPersisting {
@@ -27,16 +35,25 @@ final class SessionStore: SessionPersisting {
         self.key = key
     }
 
-    func save(_ session: PersistedSession) {
-        guard let data = try? Self.encoder.encode(session) else { return }
+    func saveAll(_ sessions: [PersistedSession]) {
+        guard !sessions.isEmpty else { return clear() }
+        guard let data = try? Self.encoder.encode(sessions) else { return }
         defaults.set(data, forKey: key)
     }
 
-    func load() -> PersistedSession? {
-        guard let data = defaults.data(forKey: key) else { return nil }
+    func loadAll() -> [PersistedSession] {
+        guard let data = defaults.data(forKey: key) else { return [] }
         // Corrupt payloads are dropped rather than thrown: a bad blob must never
         // stop the app from launching.
-        return try? Self.decoder.decode(PersistedSession.self, from: data)
+        if let sessions = try? Self.decoder.decode([PersistedSession].self, from: data) {
+            return sessions
+        }
+        // Builds before multitasking stored a single object. Reading it keeps a
+        // session that was running across the upgrade.
+        if let legacy = try? Self.decoder.decode(PersistedSession.self, from: data) {
+            return [legacy]
+        }
+        return []
     }
 
     func clear() {

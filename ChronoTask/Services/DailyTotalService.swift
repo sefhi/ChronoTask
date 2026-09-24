@@ -58,17 +58,18 @@ final class DailyTotalService: ObservableObject {
         isStale = false
     }
 
-    /// Total to render: what ClickUp knows plus the session currently running.
+    /// Total to render: what ClickUp knows plus every session running right now.
     /// Returns `nil` while the figure has never loaded, so the UI can hide it.
-    func displayTotal(runningSince startedAt: Date?, elapsed: TimeInterval) -> TimeInterval? {
+    func displayTotal(runs: [RunningTimer], at date: Date) -> TimeInterval? {
         guard let syncedSeconds else { return nil }
-        guard let startedAt else { return syncedSeconds }
-        return syncedSeconds + DailyTotalCalculator.runningContribution(
-            startedAt: startedAt,
-            elapsed: elapsed,
-            day: day,
-            calendar: calendar
-        )
+        return runs.reduce(syncedSeconds) { sum, run in
+            sum + DailyTotalCalculator.runningContribution(
+                startedAt: run.startedAt,
+                elapsed: run.elapsed(at: date),
+                day: day,
+                calendar: calendar
+            )
+        }
     }
 
     func refresh(force: Bool = false) async {

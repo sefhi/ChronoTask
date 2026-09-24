@@ -66,4 +66,33 @@ final class SessionStoreTests: XCTestCase {
 
         XCTAssertEqual(store.load()?.taskId, "two")
     }
+
+    func testSeveralSessionsRoundTripInOrder() {
+        let start = TestSupport.date("2026-07-27T09:00:00Z")
+        store.saveAll([
+            TestSupport.makeSession(taskId: "a", startedAt: start, savedAt: start),
+            TestSupport.makeSession(taskId: "b", startedAt: start, savedAt: start)
+        ])
+
+        XCTAssertEqual(store.loadAll().map(\.taskId), ["a", "b"])
+    }
+
+    func testSavingAnEmptyListClears() {
+        store.save(TestSupport.makeSession(startedAt: Date(), savedAt: Date()))
+        store.saveAll([])
+        XCTAssertNil(defaults.store.data(forKey: "session.test"))
+    }
+
+    /// Builds before multitasking stored one bare object. A session running across
+    /// the upgrade must still be found.
+    func testReadsTheSingleSessionFormatOfEarlierBuilds() throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let legacy = TestSupport.makeSession(taskId: "old",
+                                             startedAt: TestSupport.date("2026-07-27T09:00:00Z"),
+                                             savedAt: TestSupport.date("2026-07-27T09:05:00Z"))
+        defaults.store.set(try encoder.encode(legacy), forKey: "session.test")
+
+        XCTAssertEqual(store.loadAll().map(\.taskId), ["old"])
+    }
 }

@@ -10,6 +10,7 @@ final class StatusItemController: NSObject {
     private let hoverProxy = HoverProxy()
     private var imageCache: [String: NSImage] = [:]
     private var lastTitleLength = -1
+    private var lastSuffix = ""
 
     var onLeftClick: (() -> Void)?
     var onWillShowMenu: (() -> Void)?
@@ -36,7 +37,7 @@ final class StatusItemController: NSObject {
         button.setAccessibilityLabel("ChronoTask")
 
         installTrackingArea(on: button)
-        render(state: .idle, elapsed: 0)
+        render(state: .idle, elapsed: 0, parallelCount: 0)
     }
 
     // MARK: - Clicks
@@ -69,27 +70,52 @@ final class StatusItemController: NSObject {
     /// width: the app keeps running and still answers ⌥⌘T, but it disappears from
     /// the menu bar with no hint as to why. Every branch below therefore leaves the
     /// button with something to draw.
-    func render(state: TimerState, elapsed: TimeInterval) {
+    ///
+    /// `parallelCount` is how many runs are going besides the focused one, shown as
+    /// a quiet `+N` after the clock.
+    func render(state: TimerState, elapsed: TimeInterval, parallelCount: Int) {
         guard let button = statusItem?.button else { return }
 
         let icon = image(for: state)
         button.image = icon
 
         switch state {
-        case .idle:
+        case .idle, .syncing:
+            // Syncing means nothing is running any more: there is no clock to show,
+            // only the sync glyph while the last entries go out.
             button.imagePosition = icon == nil ? .noImage : .imageOnly
             button.attributedTitle = icon == nil
                 ? Self.attributedTime(Self.fallbackGlyph)
                 : NSAttributedString(string: "")
             statusItem.length = NSStatusItem.variableLength
             lastTitleLength = -1
-        case .running, .syncing:
-            // The clock is itself a title, so these states cannot collapse.
+            lastSuffix = ""
+        case .running:
+            // The clock is itself a title, so this state cannot collapse.
             let text = Self.menuBarTime(elapsed)
+            let extra = Self.parallelSuffix(parallelCount)
             button.imagePosition = icon == nil ? .noImage : .imageLeading
-            button.attributedTitle = Self.attributedTime(text)
-            applyStableLength(for: text, image: icon)
+            button.attributedTitle = Self.attributedTitle(time: text, suffix: extra)
+            applyStableLength(for: text, suffix: extra, image: icon)
         }
+    }
+
+    /// `+2` when two more tasks run beside the focused one; empty otherwise.
+    static func parallelSuffix(_ count: Int) -> String {
+        count > 0 ? "+\(count)" : ""
+    }
+
+    private static func attributedTitle(time: String, suffix: String) -> NSAttributedString {
+        let title = NSMutableAttributedString(attributedString: attributedTime(time))
+        guard !suffix.isEmpty else { return title }
+        title.append(NSAttributedString(string: " " + suffix, attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .medium),
+            // `labelColor` faded, not `secondaryLabelColor`: only the former gets the
+            // status bar's vibrant treatment, and the latter drew dark grey on a
+            // blue, highlighted item.
+            .foregroundColor: NSColor.labelColor.withAlphaComponent(0.6)
+        ]))
+        return title
     }
 
     /// Shown only if drawing the mark somehow fails; visible beats correct here.
@@ -116,11 +142,12 @@ final class StatusItemController: NSObject {
     /// Monospaced digits fix per-digit jitter but not the jump from `9:59:59` to
     /// `10:00:00`. Widening only when the digit count changes confines that to once
     /// an hour — and since the panel is anchored to `maxX`, nothing visibly moves.
-    private func applyStableLength(for text: String, image: NSImage?) {
-        guard text.count != lastTitleLength else { return }
+    private func applyStableLength(for text: String, suffix: String, image: NSImage?) {
+        guard text.count != lastTitleLength || suffix != lastSuffix else { return }
         lastTitleLength = text.count
+        lastSuffix = suffix
         let template = String(repeating: "0", count: text.count)
-        let textWidth = Self.attributedTime(template).size().width
+        let textWidth = Self.attributedTitle(time: template, suffix: suffix).size().width
         let imageWidth = image?.size.width ?? 0
         statusItem.length = ceil(imageWidth + 5 + textWidth + 12)
     }

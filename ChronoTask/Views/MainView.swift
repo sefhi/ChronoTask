@@ -22,8 +22,9 @@ struct MainView: View {
         .publish(every: Theme.syncedLabelRefresh, on: .main, in: .common)
         .autoconnect()
 
-    init(taskStore: TaskStore) {
-        _viewModel = StateObject(wrappedValue: MainViewModel(taskStore: taskStore))
+    init(taskStore: TaskStore, timerManager: TimerManager) {
+        _viewModel = StateObject(wrappedValue: MainViewModel(taskStore: taskStore,
+                                                             timerManager: timerManager))
     }
 
     var body: some View {
@@ -51,11 +52,11 @@ struct MainView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
-            TimerDisplay(elapsed: timerManager.elapsed)
-                .padding(.top, 6)
-
-            TodaySummaryLine(total: displayedTotal, isStale: dailyTotal.isStale)
-                .padding(.top, 1)
+            if let focused = timerManager.focusedRun {
+                runningBody(focused)
+            } else {
+                idleBody
+            }
 
             if let recovery = timerManager.pendingRecovery {
                 SessionRecoveryPrompt(
@@ -70,22 +71,10 @@ struct MainView: View {
                 .padding(.top, 12)
             }
 
-            TaskCaption(task: taskStore.selectedTask,
-                        isRunning: timerManager.isRunning,
-                        isExpanded: viewModel.isListOpen) {
-                viewModel.toggleList()
-            }
-            .padding(.top, 12)
-
             taskList
 
-            HStack(spacing: Theme.controlGap) {
-                PrimaryActionButton(isRunning: timerManager.isRunning,
-                                    isEnabled: canToggleTimer,
-                                    action: toggleTimer)
-                DailyTotalChip(total: displayedTotal)
-            }
-            .padding(.top, 12)
+            footer
+                .padding(.top, 12)
         }
         .padding(.horizontal, Theme.panelPadH)
         .padding(.top, Theme.panelPadTop)
@@ -100,9 +89,6 @@ struct MainView: View {
             // A finished load must read "hace un momento" immediately, not on the
             // ticker's next turn up to 20s later.
             clockTick = Date()
-        }
-        .onChange(of: taskStore.selectedTask?.id) { _ in
-            handleTaskChange()
         }
         .onChange(of: timerManager.syncError) { error in
             if let error { viewModel.showToast(error, type: .error) }
@@ -132,10 +118,100 @@ struct MainView: View {
             ChronoMarkView(isRunning: timerManager.isRunning,
                            size: 18,
                            color: timerManager.isRunning ? Theme.accent : Theme.markHeader)
-            StatusPill(state: pillState)
+            StatusPill(state: timerManager.isRunning
+                       ? .recording(count: timerManager.runs.count)
+                       : .ready)
             Spacer(minLength: 8)
             PanelMenuButton(isOpen: viewModel.isMenuOpen) {
                 viewModel.toggleMenu()
+            }
+        }
+    }
+
+    // MARK: - Body
+
+    /// Nothing running: the empty clock and the strip that opens the list.
+    private var idleBody: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TimerDisplay(elapsed: 0)
+                .padding(.top, 6)
+
+            SummaryLine(content: .today(displayedTotal, isStale: dailyTotal.isStale))
+                .padding(.top, 1)
+
+            TaskCaption(isExpanded: viewModel.isListOpen) {
+                viewModel.toggleList()
+            }
+            .padding(.top, 12)
+        }
+    }
+
+    /// The focused task large, everything else running beside it listed below.
+    private func runningBody(_ focused: RunningTimer) -> some View {
+        let count = timerManager.runs.count
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                TaskIcon(task: focused.task, isLive: true)
+                    // Rebuilt per task so the pulse starts afresh on the new one.
+                    .id(focused.id)
+                Text(focused.task.strippedName)
+                    .font(Theme.focusNameFont)
+                    .foregroundColor(Theme.ink)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Stops only this task. Always visible: "Detener N" below stops them
+                // all, and without this there was no way to stop just the one in
+                // focus.
+                Text("⌫")
+                    .font(Theme.hintFont)
+                    .foregroundColor(Theme.inkQuaternary)
+                    .accessibilityHidden(true)
+                RowStopButton(size: Theme.focusStopSize) { stop(focused) }
+                    .accessibilityLabel("Detener \(focused.task.strippedName)")
+                    .accessibilityHint("Atajo: borrar")
+            }
+            .padding(.top, 8)
+
+            TimerDisplay(elapsed: timerManager.elapsed(of: focused), compact: true)
+                .padding(.top, 4)
+
+            SummaryLine(content: count > 1
+                        ? .parallel(total: timerManager.totalElapsed, count: count)
+                        : .today(displayedTotal, isStale: dailyTotal.isStale))
+                .padding(.top, 1)
+
+            ParallelTasksSection(
+                runs: timerManager.parallelRuns,
+                elapsed: { timerManager.elapsed(of: $0) },
+                isListOpen: viewModel.isListOpen,
+                onFocus: { timerManager.focus(taskId: $0.id) },
+                onStop: { stop($0) },
+                onAdd: { viewModel.toggleList() }
+            )
+            .padding(.top, 14)
+        }
+    }
+
+    // MARK: - Footer
+
+    @ViewBuilder
+    private var footer: some View {
+        let count = timerManager.runs.count
+        HStack(spacing: Theme.controlGap) {
+            switch count {
+            case 0:
+                SecondaryActionButton(title: "Elige una tarea para empezar") {}
+                    .disabled(true)
+                DailyTotalChip(total: displayedTotal)
+            case 1:
+                PrimaryActionButton(title: "Detener", action: stopAll)
+                DailyTotalChip(total: displayedTotal)
+            default:
+                SecondaryActionButton(title: "Solo esta", action: keepOnlyFocused)
+                PrimaryActionButton(title: "Detener \(count)", hint: "␣", action: stopAll)
             }
         }
     }
@@ -162,7 +238,7 @@ struct MainView: View {
     private var taskList: some View {
         TaskListPanel(
             tasks: viewModel.filteredTasks,
-            selectedTaskID: taskStore.selectedTask?.id,
+            goLabel: timerManager.isRunning ? "+ INICIAR" : "INICIAR",
             focusedIndex: viewModel.focusedIndex,
             emptyMessage: viewModel.emptyMessage,
             syncedLabel: SyncLabel.text(lastLoaded: taskStore.lastLoaded,
@@ -171,7 +247,7 @@ struct MainView: View {
             isSyncing: taskStore.phase == .loading,
             query: $viewModel.query,
             searchFocus: $searchFocused,
-            onSelect: { viewModel.select($0) },
+            onSelect: { viewModel.start($0) },
             onHoverRow: { viewModel.hoveredIndex = $0 },
             onRefresh: { Task { await taskStore.refresh() } }
         )
@@ -204,34 +280,55 @@ struct MainView: View {
 
     // MARK: - Derived state
 
-    private var pillState: PillState {
-        if timerManager.isRunning { return .recording }
-        return taskStore.selectedTask == nil ? .noTask : .ready
-    }
-
-    private var canToggleTimer: Bool {
-        if timerManager.isRunning { return true }
-        return taskStore.selectedTask != nil && !timerManager.isSyncing
-    }
-
     private var displayedTotal: TimeInterval? {
-        dailyTotal.displayTotal(runningSince: timerManager.startTime,
-                                elapsed: timerManager.elapsed)
+        dailyTotal.displayTotal(runs: timerManager.runs, at: timerManager.clock)
     }
 
     // MARK: - Actions
+    //
+    // Each reports what actually happened instead of guessing after a fixed delay. A
+    // failed upload says nothing here: `syncError` raises its own toast.
 
-    private func toggleTimer() {
-        if timerManager.isRunning {
-            // Reports what actually happened instead of guessing after a fixed delay.
-            Task {
-                if case .synced = await timerManager.stopAndSync() {
-                    viewModel.showToast("Tiempo registrado", type: .success)
-                }
+    private func stop(_ run: RunningTimer) {
+        Task {
+            let outcome = await timerManager.stop(taskId: run.id)
+            if case .synced(let duration) = outcome {
+                viewModel.showToast("Registrado \(Self.loggedFormatted(duration)) · \(run.task.strippedName)",
+                                    type: .success)
             }
-        } else if let task = taskStore.selectedTask {
-            timerManager.start(task: task)
         }
+    }
+
+    private func stopAll() {
+        let count = timerManager.runs.count
+        Task {
+            let outcome = await timerManager.stopAll()
+            guard case .synced(let duration) = outcome else { return }
+            let message = count > 1
+                ? "\(count) tareas registradas · \(Self.loggedFormatted(duration))"
+                : "Registrado \(Self.loggedFormatted(duration))"
+            viewModel.showToast(message, type: .success)
+        }
+    }
+
+    private func stopFocused() {
+        guard let focused = timerManager.focusedRun else { return }
+        stop(focused)
+    }
+
+    private func keepOnlyFocused() {
+        guard let focused = timerManager.focusedRun else { return }
+        Task {
+            if case .synced = await timerManager.keepOnly(taskId: focused.id) {
+                viewModel.showToast("Foco en una sola tarea", type: .success)
+            }
+        }
+    }
+
+    /// "Registrado 0m" would read as nothing having been saved, so anything under a
+    /// minute is rounded up in the message — the entry itself keeps its seconds.
+    private static func loggedFormatted(_ duration: TimeInterval) -> String {
+        max(duration, 60).todayFormatted
     }
 
     private func handleMenu(_ action: PanelMenuAction) {
@@ -244,11 +341,6 @@ struct MainView: View {
         case .quit:
             environment.quit()
         }
-    }
-
-    private func handleTaskChange() {
-        guard let task = taskStore.selectedTask, timerManager.isRunning else { return }
-        timerManager.switchTask(to: task)
     }
 
     // MARK: - Keyboard
@@ -303,26 +395,41 @@ struct MainView: View {
             return true
 
         case .enter:
-            // Enter now means "pick this row" and no longer doubles as start/stop —
-            // with the list open the old dual meaning was ambiguous.
+            // Enter means "start this row" and never doubles as stop — with the list
+            // open a dual meaning would be ambiguous.
             guard viewModel.isListOpen else { return false }
             viewModel.commitFocused()
             return true
 
         case .space:
-            guard canToggleTimer else { return false }
-            toggleTimer()
+            // SPACE is the footer's main button: stop what runs, or with nothing
+            // running, go and pick something.
+            if timerManager.isRunning {
+                stopAll()
+            } else {
+                viewModel.openList()
+            }
+            return true
+
+        case .delete:
+            // ⌫ stops the task in focus and leaves the rest running — the one-task
+            // counterpart to SPACE. With the list open it is the search field's.
+            guard !viewModel.isListOpen, timerManager.isRunning else { return false }
+            stopFocused()
+            return true
+
+        case .tab(let backwards):
+            // ⇥ walks the focus through the running tasks, so any one of them can be
+            // brought forward — and then stopped with ⌫ — without the pointer.
+            guard !viewModel.isListOpen, timerManager.runs.count > 1 else { return false }
+            timerManager.cycleFocus(backwards: backwards)
             return true
 
         case .quickPick(let index):
-            // ⌘1…⌘9 pick a task outright, and start it if nothing is running.
+            // ⌘1…⌘9 start one of the first tasks outright, beside anything running.
             let tasks = viewModel.filteredTasks
             guard tasks.indices.contains(index) else { return true }
-            let task = tasks[index]
-            viewModel.select(task)
-            if !timerManager.isRunning && !timerManager.isSyncing {
-                timerManager.start(task: task)
-            }
+            viewModel.start(tasks[index])
             return true
         }
     }

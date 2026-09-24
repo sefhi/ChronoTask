@@ -51,29 +51,58 @@ final class TimerManagerTests: XCTestCase {
         XCTAssertTrue(timerManager.isRunning)
     }
 
-    func testStartIgnoredWhenNotIdle() {
-        let task1 = makeTask(id: "t1", name: "Task 1")
-        let task2 = makeTask(id: "t2", name: "Task 2")
+    func testStartingASecondTaskRunsItInParallelAndFocusesIt() {
+        timerManager.start(task: makeTask(id: "t1", name: "Task 1"))
+        timerManager.start(task: makeTask(id: "t2", name: "Task 2"))
 
-        timerManager.start(task: task1)
         XCTAssertEqual(timerManager.state, .running)
-
-        // Should not restart
-        timerManager.start(task: task2)
-        XCTAssertEqual(timerManager.state, .running)
+        XCTAssertEqual(timerManager.runs.map(\.id), ["t1", "t2"])
+        XCTAssertEqual(timerManager.focusedRun?.id, "t2")
+        XCTAssertEqual(timerManager.parallelRuns.map(\.id), ["t1"])
     }
 
-    func testStopTransitionsToSyncing() {
-        let task = makeTask(id: "t1", name: "Test")
-        timerManager.start(task: task)
-        timerManager.stop()
+    /// Starting a task that already runs must not restart its clock.
+    func testStartingARunningTaskOnlyFocusesIt() {
+        timerManager.start(task: makeTask(id: "t1", name: "Task 1"))
+        let firstStart = timerManager.runs.first?.startedAt
+        timerManager.start(task: makeTask(id: "t2", name: "Task 2"))
 
-        XCTAssertEqual(timerManager.state, .syncing)
+        timerManager.start(task: makeTask(id: "t1", name: "Task 1"))
+
+        XCTAssertEqual(timerManager.runs.count, 2)
+        XCTAssertEqual(timerManager.runs.first?.startedAt, firstStart)
+        XCTAssertEqual(timerManager.focusedRun?.id, "t1")
     }
 
-    func testStopIgnoredWhenNotRunning() {
-        // Should be no-op when idle
-        timerManager.stop()
+    func testCycleFocusWrapsInBothDirections() {
+        timerManager.start(task: makeTask(id: "a", name: "A"))
+        timerManager.start(task: makeTask(id: "b", name: "B"))
+        timerManager.start(task: makeTask(id: "c", name: "C"))
+        XCTAssertEqual(timerManager.focusedRun?.id, "c")
+
+        timerManager.cycleFocus()
+        XCTAssertEqual(timerManager.focusedRun?.id, "a")
+        timerManager.cycleFocus(backwards: true)
+        XCTAssertEqual(timerManager.focusedRun?.id, "c")
+        timerManager.cycleFocus(backwards: true)
+        XCTAssertEqual(timerManager.focusedRun?.id, "b")
+    }
+
+    func testCycleFocusDoesNothingWithASingleRun() {
+        timerManager.start(task: makeTask(id: "a", name: "A"))
+        timerManager.cycleFocus()
+        XCTAssertEqual(timerManager.focusedRun?.id, "a")
+    }
+
+    func testFocusIgnoresTasksThatAreNotRunning() {
+        timerManager.start(task: makeTask(id: "t1", name: "Task 1"))
+        timerManager.focus(taskId: "ghost")
+        XCTAssertEqual(timerManager.focusedRun?.id, "t1")
+    }
+
+    func testStopIgnoredWhenNotRunning() async {
+        let outcome = await timerManager.stopAll()
+        XCTAssertEqual(outcome, .noop)
         XCTAssertEqual(timerManager.state, .idle)
     }
 
@@ -87,7 +116,6 @@ final class TimerManagerTests: XCTestCase {
         let task = makeTask(id: "t1", name: "Test")
         timerManager.start(task: task)
 
-        // Recalculate should update elapsed
         timerManager.recalculateElapsed()
         XCTAssertGreaterThanOrEqual(timerManager.elapsed, 0)
     }
